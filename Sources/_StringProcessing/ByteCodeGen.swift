@@ -31,6 +31,9 @@ extension Compiler.ByteCodeGen {
     case let .backreference(ref):
       try emitBackreference(ref)
 
+    case let .subpattern(ref):
+      try emitSubpattern(ref)
+
     case let .symbolicReference(id):
       builder.buildUnresolvedReference(id: id)
 
@@ -40,6 +43,15 @@ extension Compiler.ByteCodeGen {
       } else {
         throw Unsupported("\(astAtom._patternBase)")
       }
+    }
+  }
+
+  mutating func emitSubpattern(_ ref: AST.Reference) throws {
+    switch ref.kind {
+    case .absolute(let i):
+      builder.buildCallSubpattern(i)
+    case .relative, .named:
+      throw Unsupported("Subpattern kind: \(ref)")
     }
   }
 
@@ -334,7 +346,14 @@ extension Compiler.ByteCodeGen {
     case .capture, .namedCapture:
       let cap = builder.makeCapture(id: referenceID)
       builder.buildBeginCapture(cap)
+      let subpatternCaller = builder.makeAddress()
+      builder.buildBranch(to: subpatternCaller)
+      let subpatternFn = builder.makeSubpatternAddress(cap)
+      builder.label(subpatternFn)
       try emitNode(child)
+      builder.buildRet()
+      builder.label(subpatternCaller)
+      builder.buildCall(subpatternFn)
       builder.buildEndCapture(cap)
       return cap
 

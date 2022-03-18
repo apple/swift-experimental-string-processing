@@ -171,12 +171,14 @@ extension Processor {
       state = .fail
       return
     }
-    assert(stackEnd.rawValue <= callStack.count)
+    // assert(stackEnd.rawValue <= callStack.count)
     assert(capEnds.count == storedCaptures.count)
 
     controller.pc = pc
     currentPosition = pos ?? currentPosition
-    callStack.removeLast(callStack.count - stackEnd.rawValue)
+    if stackEnd.rawValue <= callStack.count {
+      callStack.removeLast(callStack.count - stackEnd.rawValue)
+    }
     storedCaptures = capEnds
     registers.ints = intRegisters
   }

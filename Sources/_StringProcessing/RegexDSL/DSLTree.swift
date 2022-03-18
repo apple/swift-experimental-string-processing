@@ -120,6 +120,7 @@ extension DSLTree {
 
     case assertion(AST.Atom.AssertionKind)
     case backreference(AST.Reference)
+    case subpattern(AST.Reference)
     case symbolicReference(ReferenceID)
 
     case unconverted(AST.Atom)

@@ -125,6 +125,8 @@ extension PrettyPrinter {
         print("/* TODO: assertions */")
       case .backreference:
         print("/* TOOD: backreferences */")
+      case .subpattern:
+        print("/* TOOD: subpatterns */")
       case .symbolicReference:
         print("/* TOOD: symbolic references */")
       }

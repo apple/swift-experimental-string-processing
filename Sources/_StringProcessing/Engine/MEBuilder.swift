@@ -25,7 +25,7 @@ extension MEProgram where Input.Element: Hashable {
     var matcherFunctions: [MatcherFunction] = []
 
     // Map tokens to actual addresses
-    var addressTokens: [InstructionAddress?] = []
+    var addressTokens: [InstructionAddress?] = [.init(0)]
     var addressFixups: [(InstructionAddress, AddressFixup)] = []
 
     // Registers
@@ -49,6 +49,10 @@ extension MEProgram where Input.Element: Hashable {
       // We currently deduce the capture count from the capture register number.
       nextCaptureRegister.rawValue
     }
+
+    // Subpattern resolution
+    var subpatternFunctionTable: [Int: AddressToken] = [:]
+    var unresolvedSubpatterns: [Int: [InstructionAddress]] = [:]
 
     init() {}
   }
@@ -162,6 +166,10 @@ extension MEProgram.Builder {
   mutating func buildCall(_ t: AddressToken) {
     instructions.append(.init(.call))
     fixup(to: t)
+  }
+  mutating func buildCallSubpattern(_ index: Int) {
+    instructions.append(.init(.call))
+    unresolvedSubpatterns[index, default: []].append(lastInstructionAddress)
   }
   mutating func buildRet() {
     instructions.append(.init(.ret))
@@ -369,6 +377,32 @@ extension MEProgram.Builder {
     return AddressToken(addressTokens.count)
   }
 
+  mutating func makeSubpatternAddress(
+    _ cap: CaptureRegister
+  ) -> AddressToken {
+    let addr = makeAddress()
+    let preexistingValue = subpatternFunctionTable.updateValue(
+      addr, forKey: cap.rawValue)
+    assert(preexistingValue == nil)
+    return addr
+  }
+
+  var entryAddress: AddressToken {
+    AddressToken(rawValue: 0)
+  }
+
+  func subpatternAddress(forCaptureOffset captureOffset: Int) -> AddressToken {
+    if captureOffset == 0 {
+      return entryAddress
+    }
+    guard let addr = subpatternFunctionTable[captureOffset] else {
+      // FIXME: Should we create a variant of `buildCall` that takes a
+      // subpattern offset?
+      fatalError("FIXME: Forward-referencing a subpattern not supported")
+    }
+    return addr
+  }
+
   // Resolves the address token to the most recently added
   // instruction, updating prior and future address references
   mutating func resolve(_ t: AddressToken) {
@@ -421,7 +455,7 @@ extension MEProgram.Builder {
 
 }
 
-// Symbolic reference helpers
+// Reference and subpattern resolution helpers
 fileprivate extension MEProgram.Builder {
   mutating func resolveReferences() throws {
     for (id, uses) in unresolvedReferences {
@@ -431,6 +465,15 @@ fileprivate extension MEProgram.Builder {
       for use in uses {
         instructions[use.rawValue] =
           Instruction(.backreference, .init(capture: .init(offset)))
+      }
+    }
+  }
+
+  mutating func resolveSubpatterns() throws {
+    for (offset, calls) in unresolvedSubpatterns {
+      let addr = subpatternAddress(forCaptureOffset: offset)
+      for call in calls {
+        addressFixups.append((call, AddressFixup(addr)))
       }
     }
   }

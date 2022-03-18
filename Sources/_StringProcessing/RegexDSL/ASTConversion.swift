@@ -200,6 +200,7 @@ extension AST.Atom {
     case let .scalar(s):        return .scalar(s)
     case .any:                  return .any
     case let .backreference(r): return .backreference(r)
+    case let .subpattern(r):    return .subpattern(r)
 
     default: return .unconverted(self)
     }
