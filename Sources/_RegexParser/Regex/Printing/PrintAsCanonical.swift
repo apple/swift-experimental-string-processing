@@ -12,7 +12,7 @@
 // TODO: Round-tripping tests
 
 extension AST {
-  /// Render using Swift's preferred regex literal syntax
+  /// Renders using Swift's preferred regex literal syntax.
   public func renderAsCanonical(
     showDelimiters delimiters: Bool = false,
     terminateLine: Bool = false
@@ -27,7 +27,7 @@ extension AST {
 }
 
 extension AST.Node {
-  /// Render using Swift's preferred regex literal syntax
+  /// Renders using Swift's preferred regex literal syntax.
   public func renderAsCanonical(
     showDelimiters delimiters: Bool = false,
     terminateLine: Bool = false
@@ -38,8 +38,12 @@ extension AST.Node {
 }
 
 extension PrettyPrinter {
-  /// Will output `ast` in canonical form, taking care to
-  /// also indent and terminate the line (updating internal state)
+  /// Outputs a regular expression abstract syntax tree in canonical form,
+  /// indenting and terminating the line, and updating its internal state.
+  ///
+  /// - Parameter ast: The abstract syntax tree of the regular expression being output.
+  /// - Parameter delimiters: Whether to include commas between items.
+  /// - Parameter terminateLine: Whether to include terminate the line.
   public mutating func printAsCanonical(
     _ ast: AST,
     delimiters: Bool = false,
@@ -57,8 +61,8 @@ extension PrettyPrinter {
     }
   }
 
-  /// Output the `ast` in canonical form, does not indent, terminate,
-  /// or affect internal state
+  /// Outputs a regular expression abstract syntax tree in canonical form,
+  /// without indentation, line termation, or affecting its internal state.
   mutating func outputAsCanonical(_ ast: AST.Node) {
     switch ast {
     case let .alternation(a):

@@ -12,13 +12,13 @@
 // MARK: - Missing stdlib API
 
 extension Unicode {
+  // Note: The `Script` enum includes the "meta" script type "Katakana_Or_Hiragana", which
+  // isn't defined by https://www.unicode.org/Public/UCD/latest/ucd/Scripts.txt,
+  // but is defined by https://www.unicode.org/Public/UCD/latest/ucd/PropertyValueAliases.txt.
+  // We may want to split it out, as it's the only case that is a union of
+  // other script types.
+
   /// Character script types.
-  ///
-  /// Note this includes the "meta" script type "Katakana_Or_Hiragana", which
-  /// isn't defined by https://www.unicode.org/Public/UCD/latest/ucd/Scripts.txt,
-  /// but is defined by https://www.unicode.org/Public/UCD/latest/ucd/PropertyValueAliases.txt.
-  /// We may want to split it out, as it's the only case that is a union of
-  /// other script types.
   @frozen
   public enum Script: String, Hashable {
     case adlam = "Adlam"
@@ -254,7 +254,8 @@ extension Unicode {
     case spaceSeparator = "Zs"
   }
 
-  /// A list of unicode properties that can either be true or false.
+  /// A list of Unicode properties that can either be true or false.
+  ///
   /// https://www.unicode.org/Public/UCD/latest/ucd/PropertyAliases.txt
   @frozen
   public enum BinaryProperty: String, Hashable {
@@ -328,9 +329,10 @@ extension Unicode {
   }
 }
 
+// TODO: These should become aliases for the Block (blk) Unicode character
+// property.
+
 /// Oniguruma properties that are not covered by Unicode spellings.
-/// TODO: These should become aliases for the Block (blk) Unicode character
-/// property.
 @frozen
 public enum OnigurumaSpecialProperty: String, Hashable {
   case inBasicLatin = "In_Basic_Latin"
@@ -657,18 +659,24 @@ public enum OnigurumaSpecialProperty: String, Hashable {
 }
 
 extension Character {
+  /// Whether this character represents an octal (base 8) digit,
+  /// for the purposes of pattern parsing.
   public var isOctalDigit: Bool { ("0"..."7").contains(self) }
 
+  /// Whether this character represents a word character,
+  /// for the purposes of pattern parsing.
   public var isWordCharacter: Bool { isLetter || isNumber || self == "_" }
 
-  /// Whether this character represents whitespace for the purposes of pattern
-  /// parsing.
+  /// Whether this character represents whitespace,
+  /// for the purposes of pattern parsing.
   public var isPatternWhitespace: Bool {
     return unicodeScalars.first!.properties.isPatternWhitespace
   }
 }
 
 extension UnicodeScalar {
+  /// Whether this character represents a printable ASCII character,
+  /// for the purposes of pattern parsing.
   public var isPrintableASCII: Bool {
     // Exclude non-printables before the space character U+20, and anything
     // including and above the DEL character U+7F.

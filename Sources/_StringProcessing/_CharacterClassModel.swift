@@ -135,23 +135,30 @@ public struct _CharacterClassModel: Hashable {
     return result
   }
 
-  /// Returns an inverted character class if true is passed, otherwise the
-  /// same character class is returned.
-  func withInversion(_ invertion: Bool) -> Self {
+  /// Conditionally inverts a character class.
+  ///
+  /// - Parameter inversion: Indicates whether to invert the character class.
+  /// - Returns: The inverted character class if `inversion` is `true`;
+  ///   otherwise, the same character class.
+  func withInversion(_ inversion: Bool) -> Self {
     var copy = self
-    if invertion {
+    if inversion {
       copy.isInverted.toggle()
     }
     return copy
   }
 
-  /// Returns the inverse character class.
+  /// Inverts a character class.
   public var inverted: Self {
     return withInversion(true)
   }
   
-  /// Returns the end of the match of this character class in `str`, if
-  /// it matches.
+  /// Returns the end of the match of this character class in the string.
+  ///
+  /// - Parameter str: The string to match against.
+  /// - Parameter at: The index to start matching.
+  /// - Parameter options: Options for the match operation.
+  /// - Returns: The index of the end of the match, or `nil` if there is no match.
   func matches(in str: String, at i: String.Index, with options: MatchingOptions) -> String.Index? {
     switch matchLevel {
     case .graphemeCluster:

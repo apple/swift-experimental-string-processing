@@ -78,6 +78,7 @@ extension AST {
 }
 
 extension AST.Group.Kind {
+  /// Whether the group is a capturing group.
   public var isCapturing: Bool {
     switch self {
     case .capture, .namedCapture, .balancedCapture: return true
@@ -85,7 +86,9 @@ extension AST.Group.Kind {
     }
   }
 
-  /// If this is a named group, its name, `nil` otherwise.
+  /// The name of the group.
+  ///
+  /// If the group doesn't have a name, this value is `nil`.
   public var name: String? {
     switch self {
     case .namedCapture(let name): return name.value
@@ -96,9 +99,11 @@ extension AST.Group.Kind {
 }
 
 extension AST.Group.Kind {
-  /// If this group is a lookaround assertion, return its direction
-  /// and whether it is positive or negative. Otherwise returns
-  /// `nil`.
+  /// The direction of a lookaround assertion
+  /// and an indication of whether the assertion is positive or negative.
+  ///
+  /// If the group isn't a lookaheand or lookbehind assertion,
+  /// this value is `nil`.
   public var lookaroundKind: (forwards: Bool, positive: Bool)? {
     switch self {
     case .lookahead:         return (true, true)

@@ -9,10 +9,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The source given to a parser. This can be bytes in memory, a file on disk,
-/// something streamed over a network connection, etc.
+// For now, we use String as the source while prototyping...
+
+/// The source of text being given to a parser.
 ///
-/// For now, we use String...
+/// This can be bytes in memory, a file on disk,
+/// something streamed over a network connection, and so on.
 ///
 public struct Source {
   var input: Input
@@ -37,7 +39,7 @@ extension Source {
   public typealias Input = String    // for wrapper...
   public typealias Char  = Character // for wrapper...
 
-  /// A precise point in the input, commonly used for bounded ranges
+  /// A precise point in the input, commonly used for bounded ranges.
   public typealias Position = String.Index
 }
 

@@ -62,7 +62,7 @@ public protocol LocatedErrorProtocol: Error {
 }
 
 extension Source {
-  /// An error with source location info
+  /// An error that includes information about the location in source code.
   public struct LocatedError<E: Error>: Error, LocatedErrorProtocol {
     public let error: E
     public let location: SourceLocation
@@ -77,10 +77,10 @@ extension Source {
     }
   }
 
-  /// Located value: a value wrapped with a source range
+  /// A value wrapped with a source range.
   ///
-  /// Note: source location is part of value identity, so that the same
-  /// e.g. `Character` appearing twice can be stored in a data structure
+  /// Note: Source location is part of value identity so that, for example, the
+  /// same `Character` value appearing twice can be stored in a data structure
   /// distinctly. To ignore source locations, use `.value` directly.
   public struct Located<T> {
     public var value: T

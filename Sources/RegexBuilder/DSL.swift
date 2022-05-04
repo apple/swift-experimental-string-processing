@@ -95,8 +95,8 @@ extension UnicodeScalar: RegexComponent {
 // Note: Quantifiers are currently gyb'd.
 
 extension DSLTree.Node {
-  /// Generates a DSLTree node for a repeated range of the given DSLTree node.
-  /// Individual public API functions are in the generated Variadics.swift file.
+  // Individual public API functions are in the generated Variadics.swift file.
+  /// Generates a DSL tree node for a repeated range of the given node.
   @available(SwiftStdlib 5.7, *)
   static func repeating(
     _ range: Range<Int>,
@@ -251,8 +251,10 @@ public struct TryCapture<Output>: _BuiltinRegexComponent {
 
 // MARK: - Groups
 
-/// An atomic group, i.e. opens a local backtracking scope which, upon successful exit,
-/// discards any remaining backtracking points from within the scope
+/// An atomic group.
+///
+/// This group opens a local backtracking scope which, upon successful exit,
+/// discards any remaining backtracking points from within the scope.
 @available(SwiftStdlib 5.7, *)
 public struct Local<Output>: _BuiltinRegexComponent {
   public var regex: Regex<Output>
@@ -265,6 +267,7 @@ public struct Local<Output>: _BuiltinRegexComponent {
 // MARK: - Backreference
 
 @available(SwiftStdlib 5.7, *)
+/// A backreference.
 public struct Reference<Capture>: RegexComponent {
   let id = ReferenceID()
 

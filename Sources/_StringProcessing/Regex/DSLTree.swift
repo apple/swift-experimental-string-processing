@@ -25,29 +25,29 @@ public struct DSLTree {
 extension DSLTree {
   @_spi(RegexBuilder)
   public indirect enum Node: _TreeNode {
-    /// Try to match each node in order
+    /// Matches each node in order.
     ///
     ///     ... | ... | ...
     case orderedChoice([Node])
 
-    /// Match each node in sequence
+    /// Match each node in sequence.
     ///
     ///     ... ...
     case concatenation([Node])
 
-    /// Capture the result of a subpattern
+    /// Captures the result of a subpattern.
     ///
     ///     (...), (?<name>...)
     case capture(
       name: String? = nil, reference: ReferenceID? = nil, Node)
 
-    /// Match a (non-capturing) subpattern / group
+    /// Matches a noncapturing subpattern.
     case nonCapturingGroup(AST.Group.Kind, Node)
 
     // TODO: Consider splitting off grouped conditions, or have
     // our own kind
 
-    /// Match a choice of two nodes based on a condition
+    /// Matches a choice of two nodes, based on a condition.
     ///
     ///     (?(cond) true-branch | false-branch)
     ///
@@ -63,7 +63,7 @@ extension DSLTree {
 
     case atom(Atom)
 
-    /// Comments, non-semantic whitespace, etc
+    /// Comments, non-semantic whitespace, and so on.
     // TODO: Do we want this? Could be interesting
     case trivia(String)
 
@@ -73,7 +73,7 @@ extension DSLTree {
 
     case quotedLiteral(String)
 
-    /// An embedded literal
+    /// An embedded literal.
     case regexLiteral(AST.Node)
 
     // TODO: What should we do here?

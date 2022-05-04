@@ -104,8 +104,9 @@ extension CustomCC.Member {
 }
 
 extension AST.CustomCharacterClass {
-  /// Strip trivia from the character class members. This does not recurse into
-  /// nested custom character classes.
+  /// Strips trivia from the character class members.
+  ///
+  /// This method doesn't recurse into nested custom character classes.
   public var strippingTriviaShallow: Self {
     var copy = self
     copy.members = copy.members.filter(\.isSemantic)

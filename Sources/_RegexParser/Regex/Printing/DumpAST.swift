@@ -9,10 +9,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// AST entities can be pretty-printed or dumped
+/// AST entities that can be pretty-printed or dumped.
 ///
-/// Alternative: just use `description` for pretty-print
-/// and `debugDescription` for dump
+/// As an alternative to this protocol,
+/// you can also use the `description` to pretty-print an AST,
+/// and `debugDescription` for to dump a debugging representation.
 public protocol _ASTPrintable:
   CustomStringConvertible,
   CustomDebugStringConvertible

@@ -109,7 +109,7 @@ extension RegexComponent where Self == CharacterClass {
       members: s.map { .atom(.char($0)) }))
   }
   
-  /// Returns a character class that matches any unicode scalar in the given
+  /// Returns a character class that matches any Unicode scalar in the given
   /// sequence.
   public static func anyOf<S: Sequence>(_ s: S) -> CharacterClass
     where S.Element == UnicodeScalar
@@ -131,7 +131,7 @@ extension CharacterClass {
   }
 }
 
-/// Range syntax for characters in `CharacterClass`es.
+/// Returns a character class that includes the characters in the given range.
 @available(SwiftStdlib 5.7, *)
 public func ...(lhs: Character, rhs: Character) -> CharacterClass {
   let range: DSLTree.CustomCharacterClass.Member = .range(.char(lhs), .char(rhs))
@@ -139,7 +139,7 @@ public func ...(lhs: Character, rhs: Character) -> CharacterClass {
   return CharacterClass(ccc)
 }
 
-/// Range syntax for unicode scalars in `CharacterClass`es.
+/// Returns a character class that includes the Unicode scalars in the given range.
 @_disfavoredOverload
 @available(SwiftStdlib 5.7, *)
 public func ...(lhs: UnicodeScalar, rhs: UnicodeScalar) -> CharacterClass {

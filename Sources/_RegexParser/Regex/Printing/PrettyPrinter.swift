@@ -9,17 +9,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Track and handle state relevant to pretty-printing ASTs.
+/// State used when to pretty-printing regex ASTs.
 public struct PrettyPrinter {
   // Configuration
 
-  /// Cut off pattern conversion after this many levels
+  /// The maximum number number of levels, from the root of the tree,
+  /// at which to perform pattern conversion.
+  ///
+  /// A `nil` value indicates that there is no maximum,
+  /// and pattern conversion always takes place.
   public var maxTopDownLevels: Int?
 
-  /// Cut off pattern conversion after this tree height
+  /// The maximum number number of levels, from the leaf nodes of the tree,
+  /// at which to perform pattern conversion.
+  ///
+  /// A `nil` value indicates that there is no maximum,
+  /// and pattern conversion always takes place.
   public var minBottomUpLevels: Int?
 
-  /// How many spaces to indent with ("tab-width")
+  /// The number of spaces used for indentation.
   public var indentWidth = 2
 
   // Internal state
@@ -46,25 +54,27 @@ extension PrettyPrinter {
     self.minBottomUpLevels = minBottomUpLevels
   }
 
-  /// Output a string directly, without termination, without
-  /// indentation, and without updating _any_ internal state.
+  /// Outputs a string directly, without termination or
+  /// indentation, and without updating any internal state.
   ///
-  /// This is the low-level interface to the pret
+  /// This is the low-level interface to the pretty printer.
   ///
-  /// NOTE: If `s` includes a newline, even at the end,
-  /// this function will not update any tracking state.
+  /// - Note: If `s` includes a newline, even at the end,
+  ///   this method does not update any tracking state.
   public mutating func output(_ s: String) {
     result += s
   }
 
-  /// Terminate a line, updating any relevant state
+  /// Terminates a line, updating any relevant state.
   public mutating func terminateLine() {
     output("\n")
     startOfLine = true
   }
 
-  /// Indent a new line, if at the start of a line, otherwise
-  /// does nothing. Updates internal state.
+  /// Indents a new line, if at the start of a line, otherwise
+  /// does nothing.
+  ///
+  /// This function updates internal state.
   public mutating func indent() {
     guard startOfLine else { return }
     let numCols = indentLevel * indentWidth
@@ -72,7 +82,9 @@ extension PrettyPrinter {
     startOfLine = false
   }
 
-  // Finish, flush, and clear. Returns the rendered output
+  // Finish, flush, and clear.
+  //
+  // - Returns: The rendered output.
   public mutating func finish() -> String {
     defer { result = "" }
     return result
@@ -85,18 +97,18 @@ extension PrettyPrinter {
 extension PrettyPrinter {
   /// Print out a new entry.
   ///
-  /// This will property indent `s`, update any internal state,
-  /// and will also terminate the current line.
+  /// This method indents `s`, updates any internal state,
+  /// and terminates the current line.
   public mutating func print(_ s: String) {
     indent()
     output("\(s)")
     terminateLine()
   }
 
-  /// Print out a new entry by invoking `f` until it returns `nil`.
+  /// Prints out a new entry by invoking `f` until it returns `nil`.
   ///
-  /// This will property indent, update any internal state,
-  /// and will also terminate the current line.
+  /// This method indents `s`, updates any internal state,
+  /// and terminates the current line.
   public mutating func printLine(_ f: () -> String?) {
     // TODO: What should we do if `f` never returns non-nil?
     indent()
@@ -106,7 +118,7 @@ extension PrettyPrinter {
     terminateLine()
   }
 
-  /// Execute `f` at one increased level of indentation
+  /// Executes `f` at one increased level of indentation.
   public mutating func printIndented(
     _ f: (inout Self) -> ()
   ) {
@@ -115,7 +127,7 @@ extension PrettyPrinter {
     self.indentLevel -= 1
   }
 
-  /// Execute `f` inside an indented "block", which has a header
+  /// Executes `f` inside an indented block, which has a header
   /// and delimiters.
   public mutating func printBlock(
     _ header: String,

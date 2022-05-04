@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 extension AST {
-  /// An option written in source that changes matching semantics.
+  /// An option, written in source, that changes matching semantics.
   public struct MatchingOption: Hashable {
     public enum Kind {
       // PCRE options
@@ -83,7 +83,7 @@ extension AST {
     }
   }
 
-  /// A sequence of matching options written in source.
+  /// A sequence of matching options, written in source.
   public struct MatchingOptionSequence: Hashable {
     /// If the sequence starts with a caret '^', its source location, or nil
     /// otherwise. If this is set, it indicates that all the matching options
@@ -138,8 +138,11 @@ extension AST.MatchingOptionSequence: _ASTPrintable {
 }
 
 extension AST {
-  /// Global matching option specifiers. Unlike `MatchingOptionSequence`,
-  /// these must appear at the start of the pattern, and apply globally.
+  /// Global matching option specifiers.
+  ///
+  /// Unlike `MatchingOptionSequence`,
+  /// these options must appear at the start of the pattern,
+  /// and they apply to the entire pattern.
   public struct GlobalMatchingOption: _ASTNode, Hashable {
     /// Determines the definition of a newline for the '.' character class and
     /// when parsing end-of-line comments.

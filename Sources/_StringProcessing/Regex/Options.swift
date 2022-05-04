@@ -13,35 +13,57 @@
 
 @available(SwiftStdlib 5.7, *)
 extension RegexComponent {
-  /// Returns a regular expression that ignores casing when matching.
+  /// Returns a regular expression that ignores case when matching.
+  ///
+  /// - Parameter ignoresCase: A Boolean value indicating whether to ignore case.
+  /// - Returns: The modified regular expression.
   public func ignoresCase(_ ignoresCase: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.caseInsensitive, addingIf: ignoresCase)
   }
 
-  /// Returns a regular expression that only matches ASCII characters as "word
-  /// characters".
+  /// Returns a regular expression that matches only ASCII characters as word
+  /// characters.
+  ///
+  /// - Parameter useASCII: A Boolean value indicating whether to match only
+  ///   ASCII characters as word characters.
+  /// - Returns: The modified regular expression.
   public func asciiOnlyWordCharacters(_ useASCII: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.asciiOnlyWord, addingIf: useASCII)
   }
 
-  /// Returns a regular expression that only matches ASCII characters as digits.
+  /// Returns a regular expression that matches only ASCII characters as digits.
+  ///
+  /// - Parameter useasciiOnlyDigits: A Boolean value indicating whether to
+  ///   match only ASCII characters as digits.
+  /// - Returns: The modified regular expression.
   public func asciiOnlyDigits(_ useASCII: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.asciiOnlyDigit, addingIf: useASCII)
   }
 
-  /// Returns a regular expression that only matches ASCII characters as space
+  /// Returns a regular expression that matches only ASCII characters as space
   /// characters.
+  ///
+  /// - Parameter asciiOnlyWhitespace: A Boolean value indicating whether to
+  /// match only ASCII characters as space characters.
+  /// - Returns: The modified regular expression.
   public func asciiOnlyWhitespace(_ useASCII: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.asciiOnlySpace, addingIf: useASCII)
   }
 
-  /// Returns a regular expression that only matches ASCII characters when
+  /// Returns a regular expression that matches only ASCII characters when
   /// matching character classes.
+  ///
+  /// - Parameter useASCII: A Boolean value indicating whether to match only
+  ///   ASCII characters when matching character classes.
+  /// - Returns: The modified regular expression.
   public func asciiOnlyCharacterClasses(_ useASCII: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.asciiOnlyPOSIXProps, addingIf: useASCII)
   }
   
   /// Returns a regular expression that uses the specified word boundary algorithm.
+  ///
+  /// - Parameter wordBoundaryKind: The algorithm to use for determining word boundaries.
+  /// - Returns: The modified regular expression.
   public func wordBoundaryKind(_ wordBoundaryKind: RegexWordBoundaryKind) -> Regex<RegexOutput> {
     wrapInOption(.unicodeWordBoundaries, addingIf: wordBoundaryKind == .unicodeLevel2)
   }
@@ -51,6 +73,7 @@ extension RegexComponent {
   ///
   /// - Parameter dotMatchesNewlines: A Boolean value indicating whether `.`
   ///   should match a newline character.
+  /// - Returns: The modified regular expression.
   public func dotMatchesNewlines(_ dotMatchesNewlines: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.singleLine, addingIf: dotMatchesNewlines)
   }
@@ -65,6 +88,7 @@ extension RegexComponent {
   ///
   /// - Parameter matchLineEndings: A Boolean value indicating whether `^` and
   ///   `$` should match the start and end of lines, respectively.
+  /// - Returns: The modified regular expression.
   public func anchorsMatchLineEndings(_ matchLineEndings: Bool = true) -> Regex<RegexOutput> {
     wrapInOption(.multiline, addingIf: matchLineEndings)
   }
@@ -124,6 +148,9 @@ extension RegexComponent {
   ///     // Prints "true"
   ///     print(decomposed.contains(queRegexScalar))
   ///     // Prints "false"
+  ///
+  /// - Parameter semanticLevel: The semantics to use during matching.
+  /// - Returns: The modified regular expression.
   public func matchingSemantics(_ semanticLevel: RegexSemanticLevel) -> Regex<RegexOutput> {
     switch semanticLevel.base {
     case .graphemeCluster:
@@ -144,14 +171,18 @@ public struct RegexSemanticLevel: Hashable {
   
   internal var base: Representation
   
-  /// Match at the default semantic level of a string, where each matched
-  /// element is a `Character`.
+  /// Match at the character level.
+  ///
+  /// At this semantic level, each matched element is a `Character` value.
+  /// This is the default semantic level.
   public static var graphemeCluster: RegexSemanticLevel {
     .init(base: .graphemeCluster)
   }
   
-  /// Match at the semantic level of a string's `UnicodeScalarView`, where each
-  /// matched element is a `UnicodeScalar` value.
+  /// Match at the Unicode scalar level.
+  ///
+  /// At this semantic level, the string's `UnicodeScalarView` is used for matching,
+  /// and each matched element is a `UnicodeScalar` value.
   public static var unicodeScalar: RegexSemanticLevel {
     .init(base: .unicodeScalar)
   }

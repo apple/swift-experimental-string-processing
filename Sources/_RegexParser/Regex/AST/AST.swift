@@ -9,8 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A regex abstract syntax tree. This is a top-level type that stores the root
-/// node.
+/// A regex abstract syntax tree.
+///
+/// This is a top-level type that stores the root node.
 public struct AST: Hashable {
   public var root: AST.Node
   public var globalOptions: GlobalMatchingOptionSequence?
@@ -22,7 +23,7 @@ public struct AST: Hashable {
 }
 
 extension AST {
-  /// Whether this AST tree has nested somewhere inside it a capture.
+  /// Whether this AST tree contains at least one capture nested inside of it.
   public var hasCapture: Bool { root.hasCapture }
 
   /// The capture structure of this AST tree.
@@ -94,7 +95,9 @@ extension AST.Node {
     _associatedValue as? T
   }
 
-  /// If this node is a parent node, access its children
+  /// The child nodes of this node.
+  ///
+  /// If the node isn't a parent node, this value is `nil`.
   public var children: [AST.Node]? {
     return (_associatedValue as? _ASTParent)?.children
   }
@@ -103,7 +106,7 @@ extension AST.Node {
     _associatedValue.location
   }
 
-  /// Whether this node is "trivia" or non-semantic, like comments
+  /// Whether this node is trivia or non-semantic, like comments.
   public var isTrivia: Bool {
     switch self {
     case .trivia: return true
@@ -111,7 +114,7 @@ extension AST.Node {
     }
   }
 
-  /// Whether this node has nested somewhere inside it a capture
+  /// Whether this node contains at least one capture nested inside of it.
   public var hasCapture: Bool {
     switch self {
     case .group(let g) where g.kind.value.isCapturing:
@@ -122,7 +125,7 @@ extension AST.Node {
     return self.children?.any(\.hasCapture) ?? false
   }
 
-  /// Whether this AST node may be used as the operand of a quantifier such as
+  /// Whether this node may be used as the operand of a quantifier such as
   /// `?`, `+` or `*`.
   public var isQuantifiable: Bool {
     switch self {
@@ -203,7 +206,9 @@ extension AST {
     }
   }
 
-  /// An Oniguruma absent function. This is used to model a pattern which should
+  /// An Oniguruma absent function.
+  ///
+  /// This is used to model a pattern which should
   /// not be matched against across varying scopes.
   public struct AbsentFunction: Hashable, _ASTNode {
     public enum Start: Hashable {

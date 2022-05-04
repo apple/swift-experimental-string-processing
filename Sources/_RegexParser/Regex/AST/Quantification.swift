@@ -59,7 +59,7 @@ extension AST {
 /// MARK: - Semantic API
 
 extension AST.Quantification.Amount {
-  /// Get the bounds
+  /// The bounds.
   public var bounds: (atLeast: Int, atMost: Int?) {
     switch self {
     case .zeroOrMore: return (0, nil)

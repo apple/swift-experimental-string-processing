@@ -31,31 +31,31 @@ public struct SyntaxOptions: OptionSet {
     [.endOfLineComments, .nonSemanticWhitespace]
   }
 
+  // NOTE: Currently, this means we have raw quotes.
+  // Better would be to have real Swift string delimiter parsing logic.
+
   /// `'a "." b' == '/a\Q.\Eb/'`
-  ///
-  /// NOTE: Currently, this means we have raw quotes.
-  /// Better would be to have real Swift string delimiter parsing logic.
   public static var experimentalQuotes: Self { Self(1 << 2) }
 
+  // NOTE: traditional comments are not nested. Currently, we are neither.
+  // Traditional comments can't have `)`, not even escaped in them either, we
+  // can. Traditional comments can have `*/` in them, we can't without
+  // escaping. We don't currently do escaping.
+
   /// `'a /* comment */ b' == '/a(?#. comment )b/'`
-  ///
-  /// NOTE: traditional comments are not nested. Currently, we are neither.
-  /// Traditional comments can't have `)`, not even escaped in them either, we
-  /// can. Traditional comments can have `*/` in them, we can't without
-  /// escaping. We don't currently do escaping.
   public static var experimentalComments: Self { Self(1 << 3) }
 
   /// ```
-  ///   'a{n...m}' == '/a{n,m}/'
-  ///   'a{n..<m}' == '/a{n,m-1}/'
-  ///   'a{n...}'  == '/a{n,}/'
-  ///   'a{...m}'  == '/a{,m}/'
-  ///   'a{..<m}'  == '/a{,m-1}/'
+  /// 'a{n...m}' == '/a{n,m}/'
+  /// 'a{n..<m}' == '/a{n,m-1}/'
+  /// 'a{n...}'  == '/a{n,}/'
+  /// 'a{...m}'  == '/a{,m}/'
+  /// 'a{..<m}'  == '/a{,m-1}/'
   /// ```
   public static var experimentalRanges: Self { Self(1 << 4) }
 
   /// `(name: .*)` == `(?<name>.*)`
-  ///  `(_: .*)` == `(?:.*)`
+  /// `(_: .*)` == `(?:.*)`
   public static var experimentalCaptures: Self { Self(1 << 5) }
 
   /// The default syntax for a multi-line regex literal.

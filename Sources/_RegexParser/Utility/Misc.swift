@@ -111,8 +111,11 @@ extension Collection {
 }
 
 extension Collection where Element: Equatable {
-  /// Attempt to drop a given prefix from the collection, returning the
-  /// resulting subsequence, or `nil` if the prefix does not match.
+  /// Attempts to drop a given prefix from the collection.
+  ///
+  /// - Parameter other: The collection that contains the prefix.
+  /// - Returns: The resulting subsequence,
+  ///   or `nil` if the prefix doesn't match.
   public func tryDropPrefix<C : Collection>(
     _ other: C
   ) -> SubSequence? where C.Element == Element {
@@ -121,8 +124,11 @@ extension Collection where Element: Equatable {
     return dropFirst(prefixCount)
   }
 
-  /// Attempt to drop a given suffix from the collection, returning the
-  /// resulting subsequence, or `nil` if the suffix does not match.
+  /// Attempts to drop a given suffix from the collection.
+  ///
+  /// - Parameter other: The collection that contains the suffix.
+  /// - Returns: The resulting subsequence,
+  ///   or `nil` if the prefix doesn't match.
   public func tryDropSuffix<C : Collection>(
     _ other: C
   ) -> SubSequence? where C.Element == Element {

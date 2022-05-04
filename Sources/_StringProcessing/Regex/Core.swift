@@ -19,7 +19,7 @@ public protocol RegexComponent {
   var regex: Regex<RegexOutput> { get }
 }
 
-/// A regex represents a string processing algorithm.
+/// A regular expression.
 ///
 ///     let regex = try Regex("a(.*)b")
 ///     let match = "cbaxb".firstMatch(of: regex)

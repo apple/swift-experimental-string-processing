@@ -19,7 +19,7 @@
 
 @_spi(PatternConverter)
 extension AST {
-  /// Render as a Pattern DSL
+  /// Renders as a Pattern DSL.
   @_spi(PatternConverter)
   public func renderAsBuilderDSL(
     maxTopDownLevels: Int? = nil,

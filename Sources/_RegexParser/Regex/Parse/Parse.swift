@@ -577,8 +577,8 @@ fileprivate func defaultSyntaxOptions(
   }
 }
 
-/// Parse a given regex string with delimiters, inferring the syntax options
-/// from the delimiter used.
+/// Parses a given regex string with delimiters, inferring the syntax options
+/// from the delimiters used.
 public func parseWithDelimiters<S: StringProtocol>(
   _ regex: S
 ) throws -> AST where S.SubSequence == Substring {

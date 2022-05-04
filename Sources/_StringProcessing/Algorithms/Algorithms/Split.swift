@@ -243,9 +243,10 @@ extension Collection where Element: Equatable {
   // FIXME: Return `some Collection<SubSequence>` for SE-0346
   /// Returns the longest possible subsequences of the collection, in order,
   /// around elements equal to the given separator.
+  ///
   /// - Parameter separator: The element to be split upon.
   /// - Returns: A collection of subsequences, split from this collection's
-  /// elements.
+  ///   elements.
   @available(SwiftStdlib 5.7, *)
   public func split<S: Sequence>(
     by separator: S
@@ -306,9 +307,10 @@ extension BidirectionalCollection where SubSequence == Substring {
   // FIXME: Return `some Collection<Substring>` for SE-0346 
   /// Returns the longest possible subsequences of the collection, in order,
   /// around elements equal to the given separator.
+  ///
   /// - Parameter separator: A regex describing elements to be split upon.
   /// - Returns: A collection of substrings, split from this collection's
-  /// elements.
+  ///   elements.
   public func split<R: RegexComponent>(
     by separator: R
   ) -> [SubSequence] {

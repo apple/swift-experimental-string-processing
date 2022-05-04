@@ -286,10 +286,11 @@ extension CaptureStructure {
     MemoryLayout<SerializationVersion>.stride + inputUTF8CodeUnitCount + 1
   }
 
-  /// Encode the capture structure to the given buffer as a serialized
+  /// Encodes the capture structure to the given buffer as a serialized
   /// representation.
   ///
   /// The encoding rules are as follows:
+  ///
   /// ```
   /// encode(〚`T`〛) ==> <version>, 〚`T`〛, .end
   /// 〚`T` (atom)〛 ==> .atom

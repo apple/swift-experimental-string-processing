@@ -415,7 +415,7 @@ extension AST.Atom.CharacterProperty {
 }
 
 extension AST.Atom {
-  /// Anchors and other built-in zero-width assertions
+  /// Anchors and other built-in zero-width assertions.
   @frozen
   public enum AssertionKind: String {
     /// \A
@@ -574,7 +574,7 @@ extension AST.Atom {
 }
 
 extension AST.Atom.Callout {
-  /// A tag specifier `[...]` which may appear in an Oniguruma callout.
+  /// A tag specifier `[...]` that can appear in an Oniguruma callout.
   public struct OnigurumaTag: Hashable {
     public var leftBracket: SourceLocation
     public var name: AST.Located<String>
@@ -668,8 +668,10 @@ extension AST.Atom.EscapedBuiltin {
 }
 
 extension AST.Atom {
-  /// Retrieve the character value of the atom if it represents a literal
-  /// character or unicode scalar, nil otherwise.
+  /// Retrieves the character value of the atom.
+  ///
+  /// If the atom doesn't represent a literal character or a Unicode scalar,
+  /// this value is `nil`.
   public var literalCharacterValue: Character? {
     switch kind {
     case .char(let c):
@@ -711,9 +713,9 @@ extension AST.Atom {
     }
   }
 
-  /// Produce a string literal representation of the atom, if possible
+  /// A string literal representation of the atom, if possible.
   ///
-  /// Individual characters will be returned, Unicode scalars will be
+  /// Individual characters are returned as-is, and Unicode scalars are
   /// presented using "\u{nnnn}" syntax.
   public var literalStringValue: String? {
     switch kind {

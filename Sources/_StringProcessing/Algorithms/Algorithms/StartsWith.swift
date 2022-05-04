@@ -51,9 +51,10 @@ extension BidirectionalCollection where Element: Equatable {
 extension BidirectionalCollection where SubSequence == Substring {
   /// Returns a Boolean value indicating whether the initial elements of the
   /// sequence are the same as the elements in the specified regex.
+  ///
   /// - Parameter regex: A regex to compare to this sequence.
   /// - Returns: `true` if the initial elements of the sequence matches the
-  /// beginning of `regex`; otherwise, `false`.
+  ///   beginning of `regex`; otherwise, `false`.
   public func starts<R: RegexComponent>(with regex: R) -> Bool {
     starts(with: RegexConsumer(regex))
   }
