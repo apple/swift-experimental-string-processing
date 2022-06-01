@@ -23,6 +23,8 @@ extension Regex {
     public let range: Range<String.Index>
 
     let value: Any?
+    
+    var transform: ((Any) -> Output)?
   }
 }
 
@@ -42,9 +44,6 @@ extension Regex.Match {
       )
       
       return output as! Output
-    } else if Output.self == Substring.self {
-      // FIXME: Plumb whole match (`.0`) through the matching engine.
-      return anyRegexOutput.input[range] as! Output
     } else if anyRegexOutput.isEmpty, value != nil {
       // FIXME: This is a workaround for whole-match values not
       // being modeled as part of captures. We might want to
@@ -57,7 +56,12 @@ extension Regex.Match {
       let typeErasedMatch = anyRegexOutput.existentialOutput(
         from: anyRegexOutput.input[range]
       )
-      return typeErasedMatch as! Output
+      
+      if let transform = transform {
+        return transform(typeErasedMatch)
+      } else {
+        return typeErasedMatch as! Output
+      }
     }
   }
 
@@ -144,7 +148,9 @@ extension Regex {
     mode: MatchMode = .wholeString
   ) throws -> Regex<Output>.Match? {
     let executor = Executor(program: regex.program.loweredProgram)
-    return try executor.match(input, in: inputRange, mode)
+    var match: Match? = try executor.match(input, in: inputRange, mode)
+    match?.transform = outputTransform
+    return match
   }
 
   func _firstMatch(
@@ -157,7 +163,8 @@ extension Regex {
     var low = inputRange.lowerBound
     let high = inputRange.upperBound
     while true {
-      if let m = try _match(input, in: low..<high, mode: .partialFromFront) {
+      if var m = try _match(input, in: low..<high, mode: .partialFromFront) {
+        m.transform = outputTransform
         return m
       }
       if low >= high { return nil }

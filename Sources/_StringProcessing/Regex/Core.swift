@@ -28,7 +28,9 @@ public protocol RegexComponent<RegexOutput>: Sendable {
 @available(SwiftStdlib 5.7, *)
 public struct Regex<Output>: RegexComponent {
   let program: Program
-
+  
+  var outputTransform: ((Any) -> Output)?
+  
   var hasCapture: Bool {
     program.tree.hasCapture
   }

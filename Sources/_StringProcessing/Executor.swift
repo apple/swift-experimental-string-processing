@@ -50,7 +50,6 @@ struct Executor {
        caps.isEmpty
     {
       value = cpu.registers.values.first
-      assert(value != nil, "hmm, what would this mean?")
     } else {
       value = nil
     }

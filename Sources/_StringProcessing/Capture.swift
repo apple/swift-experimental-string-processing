@@ -72,6 +72,11 @@ extension Sequence where Element == AnyRegexOutput.Element {
     caps.append(contentsOf: self.map {
       $0.existentialOutputComponent(from: input)
     })
+    
+    if caps.count == 1 {
+      return input
+    }
+    
     return TypeConstruction.tuple(of: caps)
   }
 
