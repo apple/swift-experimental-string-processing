@@ -798,7 +798,7 @@ extension AST.Atom {
   /// range.
   public var isValidCharacterClassRangeBound: Bool {
     // If we have a literal character value for this, it can be used as a bound.
-    if literalCharacterValue != nil { return true }
+    if literalCharacterValue?.hasExactlyOneScalar == true { return true }
     switch kind {
     // \cx, \C-x, \M-x, \M-\C-x, \N{...}
     case .keyboardControl, .keyboardMeta, .keyboardMetaControl, .namedCharacter:

@@ -2692,6 +2692,8 @@ extension RegexTests {
     diagnosticTest("[[:=:]]", .emptyProperty)
 
     diagnosticTest(#"|([\d-c])?"#, .invalidCharacterClassRangeOperand)
+    diagnosticTest(#"|([🇦🇫-🇿🇼])?"#, .invalidCharacterClassRangeOperand)
+    diagnosticTest(#"|([👨‍👩‍👦-👩‍👩‍👧‍👧])?"#, .invalidCharacterClassRangeOperand)
 
     diagnosticTest(#"[_-A]"#, .invalidCharacterRange(from: "_", to: "A"))
     diagnosticTest(#"(?i)[_-A]"#, .invalidCharacterRange(from: "_", to: "A"))

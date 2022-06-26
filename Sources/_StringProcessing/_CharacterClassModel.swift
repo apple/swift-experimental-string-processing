@@ -103,6 +103,11 @@ public struct _CharacterClassModel: Hashable {
           return c == character
         }
       case .range(let range):
+        // Ranges can be formed with single-scalar characters, and can only
+        // match as such.
+        // FIXME: Convert to canonical composed version before testing?
+        guard character.hasExactlyOneScalar else { return false }
+        
         if options.isCaseInsensitive {
           let newLower = range.lowerBound.lowercased()
           let newUpper = range.upperBound.lowercased()

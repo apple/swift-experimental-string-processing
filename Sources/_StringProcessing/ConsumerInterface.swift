@@ -58,24 +58,53 @@ extension DSLTree.Atom {
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction? {
     let isCaseInsensitive = opts.isCaseInsensitive
-    
+    let isCharacterSemantics = opts.semanticLevel == .graphemeCluster
+
     switch self {
     case let .char(c):
-      // TODO: Match level?
       return { input, bounds in
-        let low = bounds.lowerBound
+        let nextIndex = isCharacterSemantics
+          ? input.index(after: bounds.lowerBound)
+          : input.unicodeScalars.index(after: bounds.lowerBound)
+
+        var curIdx = bounds.lowerBound
         if isCaseInsensitive && c.isCased {
-          return input[low].lowercased() == c.lowercased()
-            ? input.index(after: low)
-            : nil
+          if isCharacterSemantics {
+            return input[curIdx].lowercased() == c.lowercased()
+              ? nextIndex
+              : nil
+          } else {
+            // FIXME: How do multi-scalar characters match in case insensitive mode?
+            return input.unicodeScalars[curIdx].properties.lowercaseMapping == c.lowercased()
+              ? nextIndex
+              : nil
+          }
         } else {
-          return input[low] == c
-            ? input.index(after: low)
-            : nil
+          if isCharacterSemantics {
+            return input[curIdx] == c
+              ? nextIndex
+              : nil
+          } else {
+            // Try to match the sequence of unicodeScalars in `input` and `c`
+            var patternIndex = c.unicodeScalars.startIndex
+            while curIdx < input.endIndex, patternIndex < c.unicodeScalars.endIndex {
+              if input.unicodeScalars[curIdx] != c.unicodeScalars[patternIndex] {
+                return nil
+              }
+              input.unicodeScalars.formIndex(after: &curIdx)
+              c.unicodeScalars.formIndex(after: &patternIndex)
+            }
+            
+            // Match succeeded if all scalars in `c.unicodeScalars` matched
+            return patternIndex == c.unicodeScalars.endIndex
+              ? curIdx
+              : nil
+          }
         }
       }
     case let .scalar(s):
-      return consumeScalar {
+      let consume = consumeFunction(for: opts)
+      return consume {
         isCaseInsensitive
           ? $0.properties.lowercaseMapping == s.properties.lowercaseMapping
           : $0 == s
@@ -245,40 +274,48 @@ extension DSLTree.CustomCharacterClass.Member {
       }
       return c
     case let .range(low, high):
-      // TODO:
-      guard let lhs = low.literalCharacterValue else {
+      guard let lhs = low.literalCharacterValue, lhs.hasExactlyOneScalar else {
         throw Unsupported("\(low) in range")
       }
-      guard let rhs = high.literalCharacterValue else {
+      guard let rhs = high.literalCharacterValue, rhs.hasExactlyOneScalar else {
         throw Unsupported("\(high) in range")
       }
-
-      if opts.isCaseInsensitive {
-        let lhsLower = lhs.lowercased()
-        let rhsLower = rhs.lowercased()
-        guard lhsLower <= rhsLower else { throw Unsupported("Invalid range \(lhs)-\(rhs)") }
-        return { input, bounds in
-          // TODO: check for out of bounds?
-          let curIdx = bounds.lowerBound
-          if (lhsLower...rhsLower).contains(input[curIdx].lowercased()) {
-            // TODO: semantic level
-            return input.index(after: curIdx)
-          }
-          return nil
-        }
-      } else {
-        guard lhs <= rhs else { throw Unsupported("Invalid range \(lhs)-\(rhs)") }
-        return { input, bounds in
-          // TODO: check for out of bounds?
-          let curIdx = bounds.lowerBound
-          if (lhs...rhs).contains(input[curIdx]) {
-            // TODO: semantic level
-            return input.index(after: curIdx)
-          }
-          return nil
-        }
+      guard lhs <= rhs else {
+        throw Unsupported("Invalid range \(low)-\(high)")
       }
 
+      let isCaseInsensitive = opts.isCaseInsensitive
+      let isCharacterSemantic = opts.semanticLevel == .graphemeCluster
+      
+      return { input, bounds in
+        // TODO: check for out of bounds?
+        let curIdx = bounds.lowerBound
+        let nextIndex = isCharacterSemantic
+          ? input.index(after: curIdx)
+          : input.unicodeScalars.index(after: curIdx)
+        if isCharacterSemantic && !input[curIdx].hasExactlyOneScalar {
+          return nil
+        }
+        let scalar = input.unicodeScalars[curIdx]
+        let scalarRange = lhs.unicodeScalars.first! ... rhs.unicodeScalars.first!
+        if scalarRange.contains(scalar) {
+          return nextIndex
+        }
+        if !isCaseInsensitive {
+          return nil
+        }
+        
+        let stringRange = String(lhs)...String(rhs)
+        if (scalar.properties.changesWhenLowercased
+            && stringRange.contains(scalar.properties.lowercaseMapping))
+          || (scalar.properties.changesWhenUppercased
+            && stringRange.contains(scalar.properties.uppercaseMapping)) {
+          return nextIndex
+        }
+        
+        return nil
+      }
+      
     case let .custom(ccc):
       return try ccc.generateConsumer(opts)
 

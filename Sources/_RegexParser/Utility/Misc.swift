@@ -19,6 +19,13 @@ extension Substring {
   var string: String { String(self) }
 }
 
+extension Character {
+  /// Whether this character is made up of exactly one Unicode scalar value.
+  public var hasExactlyOneScalar: Bool {
+    unicodeScalars.index(after: unicodeScalars.startIndex) == unicodeScalars.endIndex
+  }
+}
+
 extension CustomStringConvertible {
   @_alwaysEmitIntoClient
   public var halfWidthCornerQuoted: String {
