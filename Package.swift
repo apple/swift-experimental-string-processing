@@ -62,13 +62,9 @@ let package = Package(
                 "_RegexParser", "_StringProcessing"
             ]),
         .target(
-            name: "_CUnicode",
-            dependencies: []),
-        .target(
             name: "_StringProcessing",
             dependencies: [
-              "_RegexParser",
-              "_CUnicode",
+              "_RegexParser"
             ],
             swiftSettings: publicStdlibSettings),
         .target(

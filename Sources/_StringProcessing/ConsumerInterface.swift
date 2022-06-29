@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(_Unicode) import Swift
 @_implementationOnly import _RegexParser
 
 extension DSLTree.Node {
@@ -455,10 +456,23 @@ extension DSLTree.CustomCharacterClass {
 typealias ScalarPredicate = (UnicodeScalar) -> Bool
 
 private func scriptScalarPredicate(_ s: Unicode.Script) -> ScalarPredicate {
-  { Unicode.Script($0) == s }
+  {
+    if #available(SwiftStdlib 5.7, *) {
+      return unsafeBitCast($0.properties._script, to: Unicode.Script.self) == s
+    } else {
+      return false
+    }
+  }
 }
 private func scriptExtensionScalarPredicate(_ s: Unicode.Script) -> ScalarPredicate {
-  { Unicode.Script.extensions(for: $0).contains(s) }
+  {
+    if #available(SwiftStdlib 5.7, *) {
+      let extensions = $0.properties._scriptExtensions
+      return extensions.contains(unsafeBitCast(s, to: UInt8.self))
+    } else {
+      return false
+    }
+  }
 }
 private func categoryScalarPredicate(_ gc: Unicode.GeneralCategory) -> ScalarPredicate {
   { gc == $0.properties.generalCategory }

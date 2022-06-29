@@ -122,6 +122,8 @@ extension UTS18Tests {
     
     // Script and Script_Extensions
     //    U+3042  あ  HIRAGANA LETTER A  Hira  {Hira}
+// FIXME: Remove this once macOS CI is running 13.0
+#if os(Linux)
     XCTAssertTrue("\u{3042}".contains(regex(#"\p{Hira}"#)))
     XCTAssertTrue("\u{3042}".contains(regex(#"\p{sc=Hira}"#)))
     XCTAssertTrue("\u{3042}".contains(regex(#"\p{scx=Hira}"#)))
@@ -133,6 +135,7 @@ extension UTS18Tests {
     XCTAssertTrue("\u{30FC}".contains(regex(#"\p{scx=Kana}"#)))
     XCTAssertFalse("\u{30FC}".contains(regex(#"\p{sc=Hira}"#)))
     XCTAssertFalse("\u{30FC}".contains(regex(#"\p{sc=Kana}"#)))
+#endif
     
     // Uppercase, etc
     expectFirstMatch(input, regex(#"\p{Uppercase}+"#), input[pos: ..<3])
@@ -144,10 +147,13 @@ extension UTS18Tests {
     expectFirstMatch(input, regex(#"\p{whitespace}+"#), input[pos: 12..<13])
 
     // Block vs Writing System
+// FIXME: Remove this once macOS CI is running 13.0
+#if os(Linux)
     let greekScalar = "Θ" // U+0398
     let greekExtendedScalar = "ἀ" // U+1F00
     XCTAssertTrue(greekScalar.contains(regex(#"\p{Greek}"#)))
     XCTAssertTrue(greekExtendedScalar.contains(regex(#"\p{Greek}"#)))
+#endif
   }
   
   func testProperties_XFail() {
@@ -543,8 +549,11 @@ extension UTS18Tests {
     XCTAssertTrue("a".contains(regex(#"\p{ASCII}"#)))
 
     // Script (Script_Extensions)
+// FIXME: Remove this once macOS CI is running 13.0
+#if os(Linux)
     XCTAssertTrue("a".contains(regex(#"\p{script=latin}"#)))
     XCTAssertTrue("강".contains(regex(#"\p{script=hangul}"#)))
+#endif
     
     // White_Space
     XCTAssertTrue(" ".contains(regex(#"\p{whitespace}"#)))
