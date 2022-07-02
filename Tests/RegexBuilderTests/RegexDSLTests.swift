@@ -110,6 +110,33 @@ class RegexDSLTests: XCTestCase {
         CharacterClass.whitespace.inverted
       }
     }
+
+    try _testDSLCaptures(
+      ("abc1def2", ("abc1def2", "abc1")),
+      matchType: (Substring, Substring).self, ==)
+    {
+      Capture {
+        OneOrMore(CharacterClass.noneOf("def"))
+      }
+
+      OneOrMore {
+        CharacterClass.noneOf("abc")
+      }
+    }
+
+    try _testDSLCaptures(
+      ("a-5-É-ü", "a-5-É-ü"),
+      matchType: Substring.self, ==)
+    {
+      CharacterClass.binaryProperty(\.isLowercase)
+      "-"
+      Lookahead(CharacterClass.numericType(.decimal))
+      CharacterClass.numericValue(5)
+      "-"
+      CharacterClass.lowercaseMapping("é")
+      "-"
+      CharacterClass.uppercaseMapping("Ü")
+    }
   }
 
   func testCharacterClassOperations() throws {
@@ -288,7 +315,7 @@ class RegexDSLTests: XCTestCase {
             OneOrMore(.word)
             Anchor.wordBoundary
           }
-          .wordBoundaryKind(.unicodeLevel1)
+          .wordBoundaryKind(.simpleBoundaries)
           OneOrMore(.any, .reluctant)
           "stop"
         }
@@ -301,14 +328,14 @@ class RegexDSLTests: XCTestCase {
         Capture {
           // Reluctant behavior due to option
           OneOrMore(.anyOf("abcd"))
-            .repetitionBehavior(.reluctant)
+            .defaultRepetitionBehavior(.reluctant)
         }
         ZeroOrMore("a"..."z")
         
         Capture {
           // Eager behavior due to explicit parameter, despite option
           OneOrMore(.digit, .eager)
-            .repetitionBehavior(.reluctant)
+            .defaultRepetitionBehavior(.reluctant)
         }
         ZeroOrMore(.digit)
       }
@@ -320,7 +347,7 @@ class RegexDSLTests: XCTestCase {
         Capture {
           OneOrMore(.word)
         }
-        .asciiOnlyWordCharacters()
+        .asciiOnlyClasses(.wordCharacter)
         
         ZeroOrMore(.any)
       }
@@ -353,7 +380,7 @@ class RegexDSLTests: XCTestCase {
     {
       OneOrMore(.reluctant) {
         One(.word)
-      }.repetitionBehavior(.possessive)
+      }.defaultRepetitionBehavior(.possessive)
       Capture(.digit)
       ZeroOrMore(.any)
     }
@@ -366,7 +393,7 @@ class RegexDSLTests: XCTestCase {
         OneOrMore(.word)
         Capture(.digit)
         ZeroOrMore(.any)
-      }.repetitionBehavior(.reluctant)
+      }.defaultRepetitionBehavior(.reluctant)
     }
     // Default set to reluctant applies to regex syntax
     try _testDSLCaptures(
@@ -374,7 +401,7 @@ class RegexDSLTests: XCTestCase {
       matchType: (Substring, Substring).self, ==)
     {
       try! Regex(#"\w+(\d).*"#, as: (Substring, Substring).self)
-        .repetitionBehavior(.reluctant)
+        .defaultRepetitionBehavior(.reluctant)
     }
     
     // Explicitly possessive
@@ -395,7 +422,7 @@ class RegexDSLTests: XCTestCase {
       Regex {
         OneOrMore("a")
         "a"
-      }.repetitionBehavior(.possessive)
+      }.defaultRepetitionBehavior(.possessive)
     }
     // More specific default set to eager
     try _testDSLCaptures(
@@ -405,10 +432,10 @@ class RegexDSLTests: XCTestCase {
       Regex {
         Capture {
           OneOrMore("a")
-            .repetitionBehavior(.eager)
+            .defaultRepetitionBehavior(.eager)
         }
         OneOrMore("a")
-      }.repetitionBehavior(.possessive)
+      }.defaultRepetitionBehavior(.possessive)
     }
     // More specific default set to reluctant
     try _testDSLCaptures(
@@ -418,10 +445,10 @@ class RegexDSLTests: XCTestCase {
       Regex {
         Capture {
           OneOrMore("a")
-            .repetitionBehavior(.reluctant)
+            .defaultRepetitionBehavior(.reluctant)
         }
         OneOrMore("a")
-      }.repetitionBehavior(.possessive)
+      }.defaultRepetitionBehavior(.possessive)
     }
 
     try _testDSLCaptures(

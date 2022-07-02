@@ -222,7 +222,7 @@ extension UTS18Tests {
   // - Nonspacing marks are never divided from their base characters, and
   //   otherwise ignored in locating boundaries.
   func testSimpleWordBoundaries() {
-    let simpleWordRegex = regex(#".+?\b"#).wordBoundaryKind(.unicodeLevel1)
+    let simpleWordRegex = regex(#".+?\b"#).wordBoundaryKind(.simpleBoundaries)
     expectFirstMatch(input, simpleWordRegex, input[pos: ..<11])
     expectFirstMatch("don't", simpleWordRegex, "don")
     expectFirstMatch("Cafe\u{301}", simpleWordRegex, "Café")

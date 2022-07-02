@@ -27,45 +27,29 @@ extension RegexComponent {
   /// - Parameter useASCII: A Boolean value indicating whether to match only
   ///   ASCII characters as word characters.
   /// - Returns: The modified regular expression.
-  public func asciiOnlyWordCharacters(_ useASCII: Bool = true) -> Regex<RegexOutput> {
-    wrapInOption(.asciiOnlyWord, addingIf: useASCII)
+  public func asciiOnlyClasses(_ kinds: RegexCharacterClassKind = .all) -> Regex<RegexOutput> {
+    if kinds == [] {
+      return Regex(node: .nonCapturingGroup(
+        .init(ast: .changeMatchingOptions(AST.MatchingOptionSequence(removing: [
+          .init(.asciiOnlyDigit, location: .fake),
+          .init(.asciiOnlySpace, location: .fake),
+          .init(.asciiOnlyWord, location: .fake),
+          .init(.asciiOnlyPOSIXProps, location: .fake),
+        ]))), regex.root))
+    }
+    return self
+      .wrapInOption(.asciiOnlyDigit, addingIf: kinds.contains(.digit))
+      .wrapInOption(.asciiOnlySpace, addingIf: kinds.contains(.whitespace))
+      .wrapInOption(.asciiOnlyWord, addingIf: kinds.contains(.wordCharacter))
+      .wrapInOption(.asciiOnlyPOSIXProps, addingIf: kinds.contains(.all))
   }
 
-  /// Returns a regular expression that matches only ASCII characters as digits.
-  ///
-  /// - Parameter useasciiOnlyDigits: A Boolean value indicating whether to
-  ///   match only ASCII characters as digits.
-  /// - Returns: The modified regular expression.
-  public func asciiOnlyDigits(_ useASCII: Bool = true) -> Regex<RegexOutput> {
-    wrapInOption(.asciiOnlyDigit, addingIf: useASCII)
-  }
-
-  /// Returns a regular expression that matches only ASCII characters as space
-  /// characters.
-  ///
-  /// - Parameter asciiOnlyWhitespace: A Boolean value indicating whether to
-  /// match only ASCII characters as space characters.
-  /// - Returns: The modified regular expression.
-  public func asciiOnlyWhitespace(_ useASCII: Bool = true) -> Regex<RegexOutput> {
-    wrapInOption(.asciiOnlySpace, addingIf: useASCII)
-  }
-
-  /// Returns a regular expression that matches only ASCII characters when
-  /// matching character classes.
-  ///
-  /// - Parameter useASCII: A Boolean value indicating whether to match only
-  ///   ASCII characters when matching character classes.
-  /// - Returns: The modified regular expression.
-  public func asciiOnlyCharacterClasses(_ useASCII: Bool = true) -> Regex<RegexOutput> {
-    wrapInOption(.asciiOnlyPOSIXProps, addingIf: useASCII)
-  }
-  
   /// Returns a regular expression that uses the specified word boundary algorithm.
   ///
   /// - Parameter wordBoundaryKind: The algorithm to use for determining word boundaries.
   /// - Returns: The modified regular expression.
   public func wordBoundaryKind(_ wordBoundaryKind: RegexWordBoundaryKind) -> Regex<RegexOutput> {
-    wrapInOption(.unicodeWordBoundaries, addingIf: wordBoundaryKind == .unicodeLevel2)
+    wrapInOption(.unicodeWordBoundaries, addingIf: wordBoundaryKind == .defaultBoundaries)
   }
   
   /// Returns a regular expression where the start and end of input
@@ -96,14 +80,28 @@ extension RegexComponent {
   /// Returns a regular expression where quantifiers use the specified behavior
   /// by default.
   ///
-  /// This setting does not affect calls to quantifier methods, such as
-  /// `OneOrMore`, that include an explicit `behavior` parameter.
+  /// You can call this method to change the default repetition behavior for
+  /// quantifier operators in regex syntax and `RegexBuilder` quantifier
+  /// methods. For example, in the following example, both regexes use
+  /// possessive quantification when matching a quotation surround by `"`
+  /// quote marks:
   ///
-  /// Passing `.eager` or `.reluctant` to this method corresponds to applying
-  /// the `(?-U)` or `(?U)` option in regex syntax, respectively.
+  ///     let regex1 = /"[^"]*"/.defaultRepetitionBehavior(.possessive)
+  ///
+  ///     let quoteMark = "\""
+  ///     let regex2 = Regex {
+  ///         quoteMark
+  ///         ZeroOrMore(.noneOf(quoteMark))
+  ///         quoteMark
+  ///     }.defaultRepetitionBehavior(.possessive)
+  ///
+  /// This setting only changes the default behavior of quantifiers, and does
+  /// not affect regex syntax operators with an explicit behavior indicator,
+  /// such as `*?` or `++`. Likewise, calls to quantifier methods such as
+  /// `OneOrMore` always use the explicit `behavior`, when given.
   ///
   /// - Parameter behavior: The default behavior to use for quantifiers.
-  public func repetitionBehavior(_ behavior: RegexRepetitionBehavior) -> Regex<RegexOutput> {
+  public func defaultRepetitionBehavior(_ behavior: RegexRepetitionBehavior) -> Regex<RegexOutput> {
     if behavior == .possessive {
       return wrapInOption(.possessiveByDefault, addingIf: true)
     } else {
@@ -161,8 +159,47 @@ extension RegexComponent {
   }
 }
 
+/// A built-in regex character class kind.
+///
+/// Pass one or more `RegexCharacterClassKind` classes to `asciiOnlyClasses(_:)`
+/// to control whether character classes match any character or only members
+/// of the ASCII character set.
 @available(SwiftStdlib 5.7, *)
+public struct RegexCharacterClassKind: OptionSet, Hashable {
+  public var rawValue: Int
+  
+  public init(rawValue: Int) {
+    self.rawValue = rawValue
+  }
+
+  /// Regex digit-matching character classes, like `\d`, `[:digit:]`, and
+  /// `\p{HexDigit}`.
+  public static var digit: RegexCharacterClassKind {
+    .init(rawValue: 1)
+  }
+
+  /// Regex whitespace-matching character classes, like `\s`, `[:space:]`,
+  /// and `\p{Whitespace}`.
+  public static var whitespace: RegexCharacterClassKind {
+    .init(rawValue: 1 << 1)
+  }
+
+  /// Regex word character-matching character classes, like `\w`.
+  public static var wordCharacter: RegexCharacterClassKind {
+    .init(rawValue: 1 << 2)
+  }
+
+  /// All built-in regex character classes.
+  public static var all: RegexCharacterClassKind {
+    .init(rawValue: 1 << 3)
+  }
+
+  /// No built-in regex character classes.
+  public static var none: RegexCharacterClassKind { [] }
+}
+
 /// A semantic level to use during regex matching.
+@available(SwiftStdlib 5.7, *)
 public struct RegexSemanticLevel: Hashable {
   internal enum Representation {
     case graphemeCluster
@@ -188,8 +225,8 @@ public struct RegexSemanticLevel: Hashable {
   }
 }
 
-@available(SwiftStdlib 5.7, *)
 /// A word boundary algorithm to use during regex matching.
+@available(SwiftStdlib 5.7, *)
 public struct RegexWordBoundaryKind: Hashable {
   internal enum Representation {
     case unicodeLevel1
@@ -205,7 +242,7 @@ public struct RegexWordBoundaryKind: Hashable {
   /// that match `/\w\W/` or `/\W\w/`, or between the start or end of the input
   /// and a `\w` character. Word boundaries therefore depend on the option-
   /// defined behavior of `\w`.
-  public static var unicodeLevel1: Self {
+  public static var simpleBoundaries: Self {
     .init(base: .unicodeLevel1)
   }
 
@@ -215,7 +252,7 @@ public struct RegexWordBoundaryKind: Hashable {
   /// Default word boundaries use a Unicode algorithm that handles some cases
   /// better than simple word boundaries, such as words with internal
   /// punctuation, changes in script, and Emoji.
-  public static var unicodeLevel2: Self {
+  public static var defaultBoundaries: Self {
     .init(base: .unicodeLevel2)
   }
 }

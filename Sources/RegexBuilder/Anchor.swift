@@ -102,8 +102,9 @@ extension Anchor {
   /// An anchor that matches at the start of a line, including the start of
   /// the input string.
   ///
-  /// This anchor is equivalent to `^` in regex syntax when the `m` option
-  /// has been enabled or `anchorsMatchLineEndings(true)` has been called.
+  /// This anchor is unaffected by the `anchorsMatchLineEndings(_:)` method. It
+  /// is equivalent to `^` in regex syntax with the `m` option enabled, or
+  /// `(?m:^)`.
   public static var startOfLine: Anchor {
     Anchor(kind: .startOfLine)
   }
@@ -111,8 +112,9 @@ extension Anchor {
   /// An anchor that matches at the end of a line, including at the end of
   /// the input string.
   ///
-  /// This anchor is equivalent to `$` in regex syntax when the `m` option
-  /// has been enabled or `anchorsMatchLineEndings(true)` has been called.
+  /// This anchor is unaffected by the `anchorsMatchLineEndings(_:)` method. It
+  /// is equivalent to `$` in regex syntax with the `m` option enabled, or
+  /// `(?m:$)`.
   public static var endOfLine: Anchor {
     Anchor(kind: .endOfLine)
   }
@@ -147,6 +149,9 @@ extension Anchor {
 /// a particular position. Lookaheads do not advance the overall matching
 /// position in the input string — once a lookahead succeeds, matching continues
 /// in the regex from the same position.
+///
+/// Using `Lookahead` in regex builder syntax is equivalent to using the regex
+/// syntax `/(?=...)/`.
 @available(SwiftStdlib 5.7, *)
 public struct Lookahead<Output>: _BuiltinRegexComponent {
   public var regex: Regex<Output>
@@ -177,6 +182,9 @@ public struct Lookahead<Output>: _BuiltinRegexComponent {
 /// does not match at a particular position. Lookaheads do not advance the
 /// overall matching position in the input string — once a lookahead succeeds,
 /// matching continues in the regex from the same position.
+///
+/// Using `NegativeLookahead` in regex builder syntax is equivalent to using
+/// the regex syntax `/(?!...)/`.
 @available(SwiftStdlib 5.7, *)
 public struct NegativeLookahead<Output>: _BuiltinRegexComponent {
   public var regex: Regex<Output>
