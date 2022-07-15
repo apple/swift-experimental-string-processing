@@ -69,11 +69,12 @@ struct CrossBenchmark {
   /// TODO: Probably better ot have a whole-line vs search anywhere, maybe
   /// accomodate multi-line matching, etc.
   var isWhole: Bool = false
+  
+  /// Whether or not to do firstMatch as well or just allMatches
+  var includeFirst: Bool = false
 
   func register(_ runner: inout BenchmarkRunner) {
     let swiftRegex = try! Regex(regex)
-
-    let nsPattern = isWhole ? "^" + regex + "$" : regex
     let nsRegex: NSRegularExpression
     if isWhole {
       nsRegex = try! NSRegularExpression(pattern: "^" + regex + "$")
@@ -97,21 +98,9 @@ struct CrossBenchmark {
     } else {
       runner.register(
         Benchmark(
-          name: baseName + "First",
-          regex: swiftRegex,
-          type: .first,
-          target: input))
-      runner.register(
-        Benchmark(
           name: baseName + "All",
           regex: swiftRegex,
           type: .allMatches,
-          target: input))
-      runner.register(
-        NSBenchmark(
-          name: baseName + "First_NS",
-          regex: nsRegex,
-          type: .first,
           target: input))
       runner.register(
         NSBenchmark(
@@ -119,6 +108,20 @@ struct CrossBenchmark {
           regex: nsRegex,
           type: .allMatches,
           target: input))
+      if includeFirst {
+        runner.register(
+          Benchmark(
+            name: baseName + "First",
+            regex: swiftRegex,
+            type: .first,
+            target: input))
+        runner.register(
+          NSBenchmark(
+            name: baseName + "First_NS",
+            regex: nsRegex,
+            type: .first,
+            target: input))
+      }
     }
   }
 }

@@ -6,7 +6,7 @@ extension BenchmarkRunner {
     let r = #"<(\w*)\b[^>]*>(.*?)<\/\1>"#
     
     let html = CrossBenchmark(
-      baseName: "html", regex: r, input: Inputs.swiftOrgHTML)
+      baseName: "Html", regex: r, input: Inputs.swiftOrgHTML)
     html.register(&self)
   }
 }

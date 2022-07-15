@@ -13,22 +13,22 @@ extension BenchmarkRunner {
     let emailWithLookaheads = #"(?=[A-z0-9][A-z0-9@._%+-]{5,253})[A-z0-9._%+-]{1,64}@(?:(?=[A-z0-9-]{1,63}\.)[A-z0-9]+(?:-[A-z0-9]+)*\.){1,8}[A-z]{2,63}"#
     
     let emailRFCValid = CrossBenchmark(
-      baseName: "emailRFC", regex: emailRFC, input: Inputs.validEmails)
+      baseName: "EmailRFC", regex: emailRFC, input: Inputs.validEmails)
     
     let emailRFCInvalid = CrossBenchmark(
-      baseName: "emailRFCNoMatches",
+      baseName: "EmailRFCNoMatches",
       regex: emailRFC,
       input: Inputs.graphemeBreakData
     )
     
     let emailValid = CrossBenchmark(
-      baseName: "emailLookahead",
+      baseName: "EmailLookahead",
       regex: emailWithLookaheads,
       input: Inputs.validEmails
     )
     
     let emailInvalid = CrossBenchmark(
-      baseName: "emailLookaheadNoMatches",
+      baseName: "EmailLookaheadNoMatches",
       regex: emailWithLookaheads,
       input: Inputs.graphemeBreakData
     )

@@ -18,7 +18,7 @@ extension BenchmarkRunner {
     let regex = #"HANGUL SYLLABLE [A-Z]+(?:\.\.HANGUL SYLLABLE [A-Z]+)?"#
 
     let benchmark = CrossBenchmark(
-      baseName: "HangulSyllable", regex: regex, input: input)
+      baseName: "HangulSyllable", regex: regex, input: input, includeFirst: true)
     benchmark.register(&self)
   }
 }

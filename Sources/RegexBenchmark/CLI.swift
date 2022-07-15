@@ -2,7 +2,7 @@ import ArgumentParser
 
 @main
 struct Runner: ParsableCommand {
-  @Argument(help: "Names of benchmarks to run")
+  @Argument(help: "Patterns for benchmarks to run")
   var specificBenchmarks: [String] = []
   
   @Flag(help: "Run only once for profiling purposes")
@@ -20,19 +20,30 @@ struct Runner: ParsableCommand {
   @Flag(help: "Should the results be saved")
   var save = false
   
-  @Flag(help: "Compare this result with the latest saved result")
+  @Flag(help: "Compare this result with a saved result")
   var compare = false
   
   @Option(help: "The result file to compare against, if this flag is not set it will compare against the most recent result file")
   var compareFile: String?
   
+  @Flag(help: "Exclude the comparisons to NSRegex")
+  var excludeNs = false
+  
   mutating func run() throws {
     var runner = BenchmarkRunner.makeRunner(samples, outputPath)
-    
-    // todo: regex based filter 
+        
     if !self.specificBenchmarks.isEmpty {
-      runner.suite = runner.suite.filter { b in specificBenchmarks.contains(b.name) }
+      runner.suite = runner.suite.filter { b in
+        specificBenchmarks.contains { pattern in
+          try! Regex(pattern).wholeMatch(in: b.name) != nil
+        }
+      }
     }
+    
+    if excludeNs {
+      runner.suite = runner.suite.filter { b in !b.name.contains("NS") }
+    }
+    
     switch (profile, debug) {
     case (true, true): print("Cannot run both profile and debug")
     case (true, false): runner.profile()

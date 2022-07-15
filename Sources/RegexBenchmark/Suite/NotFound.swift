@@ -6,11 +6,11 @@ extension BenchmarkRunner {
     let input = String(repeating: " ", count: 100_000)
 
     let notFound = CrossBenchmark(
-      baseName: "notFound", regex: "a", input: input)
+      baseName: "NotFound", regex: "a", input: input)
     notFound.register(&self)
 
     let anchoredNotFound = CrossBenchmark(
-      baseName: "notFound", regex: "^ +a", input: input)
+      baseName: "AnchoredNotFound", regex: "^ +a", input: input)
     anchoredNotFound.register(&self)
   }
 }

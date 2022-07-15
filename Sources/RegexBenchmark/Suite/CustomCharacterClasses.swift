@@ -13,37 +13,37 @@ extension BenchmarkRunner {
     let input = Inputs.graphemeBreakData
     
     register(Benchmark(
-      name: "basicCCC",
+      name: "BasicCCC",
       regex: try! Regex(basic),
       type: .allMatches,
       target: input))
     
     register(Benchmark(
-      name: "basicRangeCCC",
+      name: "BasicRangeCCC",
       regex: try! Regex(basicRange),
       type: .allMatches,
       target: input))
     
     register(Benchmark(
-      name: "caseInsensitiveCCC",
+      name: "CaseInsensitiveCCC",
       regex: try! Regex(caseInsensitive),
       type: .allMatches,
       target: input))
     
     register(Benchmark(
-      name: "invertedCCC",
+      name: "InvertedCCC",
       regex: try! Regex(inverted),
       type: .allMatches,
       target: input))
     
     register(Benchmark(
-      name: "subtractionCCC",
+      name: "SubtractionCCC",
       regex: try! Regex(subtraction),
       type: .allMatches,
       target: input))
     
     register(Benchmark(
-      name: "intersectionCCC",
+      name: "IntersectionCCC",
       regex: try! Regex(intersection),
       type: .allMatches,
       target: input))
