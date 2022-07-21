@@ -12,6 +12,39 @@
 @_spi(_Unicode)
 import Swift
 
+extension Processor {
+  func atSimpleBoundary(
+    _ usesAsciiWord: Bool,
+    _ semanticLevel: MatchingOptions.SemanticLevel
+  ) -> Bool {
+    func matchesWord(at i: Input.Index) -> Bool {
+      switch semanticLevel {
+      case .graphemeCluster:
+        let c = input[i]
+        return c.isWordCharacter && (c.isASCII || !usesAsciiWord)
+      case .unicodeScalar:
+        let c = input.unicodeScalars[i]
+        return (c.properties.isAlphabetic || c == "_") && (c.isASCII || !usesAsciiWord)
+      }
+    }
+    
+    // FIXME: How should we handle bounds?
+    // We probably need two concepts
+    if subjectBounds.isEmpty { return false }
+    if currentPosition == subjectBounds.lowerBound {
+      return matchesWord(at: currentPosition)
+    }
+    let priorIdx = input.index(before: currentPosition)
+    if currentPosition == subjectBounds.upperBound {
+      return matchesWord(at: priorIdx)
+    }
+    
+    let prior = matchesWord(at: priorIdx)
+    let current = matchesWord(at: currentPosition)
+    return prior != current
+  }
+}
+
 extension String {
   func isOnWordBoundary(
     at i: String.Index,

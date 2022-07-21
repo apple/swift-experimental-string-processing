@@ -74,6 +74,9 @@ fileprivate extension Compiler.ByteCodeGen {
         emitMatchScalar(s)
       }
 
+    case let .characterClass(cc):
+      emitCharacterClass(cc)
+
     case let .assertion(kind):
       try emitAssertion(kind)
 
@@ -148,147 +151,27 @@ fileprivate extension Compiler.ByteCodeGen {
     }
   }
 
-  mutating func emitStartOfLine() {
-    builder.buildAssert { [semanticLevel = options.semanticLevel]
-        (_, _, input, pos, subjectBounds) in
-      if pos == subjectBounds.lowerBound { return true }
-      switch semanticLevel {
-      case .graphemeCluster:
-        return input[input.index(before: pos)].isNewline
-      case .unicodeScalar:
-        return input.unicodeScalars[input.unicodeScalars.index(before: pos)].isNewline
-      }
-    }
-  }
-
-  mutating func emitEndOfLine() {
-    builder.buildAssert { [semanticLevel = options.semanticLevel]
-      (_, _, input, pos, subjectBounds) in
-      if pos == subjectBounds.upperBound { return true }
-      switch semanticLevel {
-      case .graphemeCluster:
-        return input[pos].isNewline
-      case .unicodeScalar:
-        return input.unicodeScalars[pos].isNewline
-      }
-    }
-  }
-
   mutating func emitAssertion(
     _ kind: DSLTree.Atom.Assertion
   ) throws {
-    // FIXME: Depends on API model we have... We may want to
-    // think through some of these with API interactions in mind
-    //
-    // This might break how we use `bounds` for both slicing
-    // and things like `firstIndex`, that is `firstIndex` may
-    // need to supply both a slice bounds and a per-search bounds.
-    switch kind {
-    case .startOfSubject:
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in
-        pos == subjectBounds.lowerBound
-      }
-
-    case .endOfSubjectBeforeNewline:
-      builder.buildAssert { [semanticLevel = options.semanticLevel]
-          (_, _, input, pos, subjectBounds) in
-        if pos == subjectBounds.upperBound { return true }
-        switch semanticLevel {
-        case .graphemeCluster:
-          return input.index(after: pos) == subjectBounds.upperBound
-           && input[pos].isNewline
-        case .unicodeScalar:
-          return input.unicodeScalars.index(after: pos) == subjectBounds.upperBound
-           && input.unicodeScalars[pos].isNewline
-        }
-      }
-
-    case .endOfSubject:
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in
-        pos == subjectBounds.upperBound
-      }
-
-    case .resetStartOfMatch:
-      // FIXME: Figure out how to communicate this out
+    if kind == .resetStartOfMatch {
       throw Unsupported(#"\K (reset/keep assertion)"#)
-
-    case .firstMatchingPositionInSubject:
-      // TODO: We can probably build a nice model with API here
-      
-      // FIXME: This needs to be based on `searchBounds`,
-      // not the `subjectBounds` given as an argument here
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in false }
-
-    case .textSegment:
-      builder.buildAssert { (_, _, input, pos, _) in
-        // FIXME: Grapheme or word based on options
-        input.isOnGraphemeClusterBoundary(pos)
-      }
-
-    case .notTextSegment:
-      builder.buildAssert { (_, _, input, pos, _) in
-        // FIXME: Grapheme or word based on options
-        !input.isOnGraphemeClusterBoundary(pos)
-      }
-
-    case .startOfLine:
-      emitStartOfLine()
-
-    case .endOfLine:
-      emitEndOfLine()
-
-    case .caretAnchor:
-      if options.anchorsMatchNewlines {
-        emitStartOfLine()
-      } else {
-        builder.buildAssert { (_, _, input, pos, subjectBounds) in
-          pos == subjectBounds.lowerBound
-        }
-      }
-
-    case .dollarAnchor:
-      if options.anchorsMatchNewlines {
-        emitEndOfLine()
-      } else {
-        builder.buildAssert { (_, _, input, pos, subjectBounds) in
-          pos == subjectBounds.upperBound
-        }
-      }
-
-    case .wordBoundary:
-      builder.buildAssert { [options]
-          (cache, maxIndex, input, pos, subjectBounds) in
-        if options.usesSimpleUnicodeBoundaries {
-          // TODO: How should we handle bounds?
-          return _CharacterClassModel.word.isBoundary(
-            input,
-            at: pos,
-            bounds: subjectBounds,
-            with: options
-          )
-        } else {
-          return input.isOnWordBoundary(at: pos, using: &cache, &maxIndex)
-        }
-      }
-
-    case .notWordBoundary:
-      builder.buildAssert { [options]
-          (cache, maxIndex, input, pos, subjectBounds) in
-        if options.usesSimpleUnicodeBoundaries {
-          // TODO: How should we handle bounds?
-          return !_CharacterClassModel.word.isBoundary(
-            input,
-            at: pos,
-            bounds: subjectBounds,
-            with: options
-          )
-        } else {
-          return !input.isOnWordBoundary(at: pos, using: &cache, &maxIndex)
-        }
-      }
     }
+    builder.buildAssert(
+      by: kind,
+      options.anchorsMatchNewlines,
+      options.usesSimpleUnicodeBoundaries,
+      options.usesASCIIWord,
+      options.semanticLevel)
   }
-  
+
+  mutating func emitCharacterClass(_ cc: DSLTree.Atom.CharacterClass) {
+    builder.buildMatchBuiltin(
+      cc.model,
+      cc.model.isStrictAscii(options: options),
+      isScalar: options.semanticLevel == .unicodeScalar)
+  }
+
   mutating func emitMatchScalar(_ s: UnicodeScalar) {
     assert(options.semanticLevel == .unicodeScalar)
     if options.isCaseInsensitive && s.properties.isCased {
@@ -591,6 +474,23 @@ fileprivate extension Compiler.ByteCodeGen {
     let minTrips = low
     assert((extraTrips ?? 1) >= 0)
 
+    // We want to specialize common quantification cases
+    // Allowed nodes are:
+    // - .char
+    // - .customCharacterClass
+    // - built in character classes
+    // - .any, .anyNonNewline, .dot
+    // We do this by wrapping a single instruction in a .quantify instruction
+    if optimizationsEnabled
+        && child.shouldDoFastQuant(options)
+        && minTrips <= QuantifyPayload.maxStorableTrips
+        && extraTrips ?? 0 <= QuantifyPayload.maxStorableTrips
+        && options.matchLevel == .graphemeCluster
+        && updatedKind != .reluctant {
+      emitFastQuant(child, updatedKind, minTrips, extraTrips)
+      return
+    }
+
     // The below is a general algorithm for bounded and unbounded
     // quantification. It can be specialized when the min
     // is 0 or 1, or when extra trips is 1 or unbounded.
@@ -775,6 +675,65 @@ fileprivate extension Compiler.ByteCodeGen {
     builder.label(exit)
   }
 
+  mutating func emitFastQuant(
+    _ child: DSLTree.Node,
+    _ kind: AST.Quantification.Kind,
+    _ minTrips: Int,
+    _ extraTrips: Int?
+  ) {
+    // These cases must stay in sync with DSLTree.Node.shouldDoFastQuant
+    // as well as the compilation paths for these nodes outside of quantification
+
+    // All assumptions made by the processor in runQuantify() must be checked here
+    // If an error is thrown here, there must be a mistake in shouldDoFastQuant
+    // letting in an invalid case
+    
+    // Coupling is bad but we do it for _speed_
+    switch child {
+    case .customCharacterClass(let ccc):
+      if let bitset = ccc.asAsciiBitset(options) {
+        builder.buildQuantify(bitset: bitset, kind, minTrips, extraTrips)
+      } else {
+        fatalError("Entered emitFastQuant with an invalid case: Unable to generate bitset")
+      }
+    case .atom(let atom):
+      switch atom {
+      case .char(let c):
+        if let val = c._singleScalarAsciiValue {
+          builder.buildQuantify(asciiChar: val, kind, minTrips, extraTrips)
+        } else {
+          fatalError("Entered emitFastQuant with an invalid case: Character is not single scalar ascii")
+        }
+      case .any:
+        builder.buildQuantifyAny(matchesNewlines: true, kind, minTrips, extraTrips)
+      case .anyNonNewline:
+        builder.buildQuantifyAny(matchesNewlines: false, kind, minTrips, extraTrips)
+      case .dot:
+        builder.buildQuantifyAny(matchesNewlines: options.dotMatchesNewline, kind, minTrips, extraTrips)
+      case .characterClass(let cc):
+        let model = cc.model
+        assert(model.consumesSingleGrapheme,
+               "Entered emitFastQuant with an invalid case: Builtin class that does not consume a single grapheme")
+        builder.buildQuantify(
+          builtin: model.cc,
+          isStrict: model.isStrictAscii(options: options),
+          isInverted: model.isInverted,
+          kind,
+          minTrips,
+          extraTrips)
+      default:
+        fatalError("Entered emitFastQuant with an invalid case: DSLTree.Node.shouldDoFastQuant is out of sync")
+      }
+    case .convertedRegexLiteral(let node, _):
+      emitFastQuant(node, kind, minTrips, extraTrips)
+    case .nonCapturingGroup(let groupKind, let node):
+      assert(groupKind.ast == .nonCapture, "Entered emitFastQuant with an invalid case: Invalid nonCapturingGroup type")
+      emitFastQuant(node, kind, minTrips, extraTrips)
+    default:
+      fatalError("Entered emitFastQuant with an invalid case: DSLTree.Node.shouldDoFastQuant is out of sync")
+    }
+  }
+
   mutating func emitCustomCharacterClass(
     _ ccc: DSLTree.CustomCharacterClass
   ) throws {
@@ -785,10 +744,10 @@ fileprivate extension Compiler.ByteCodeGen {
       } else {
         builder.buildMatchAsciiBitset(asciiBitset)
       }
-    } else {
-      let consumer = try ccc.generateConsumer(options)
-      builder.buildConsume(by: consumer)
+      return
     }
+    let consumer = try ccc.generateConsumer(options)
+    builder.buildConsume(by: consumer)
   }
 
   @discardableResult
@@ -919,6 +878,45 @@ extension DSLTree.Node {
       let (atLeast, _) = amount.ast.bounds
       return atLeast ?? 0 > 0 && child.guaranteesForwardProgress
     default: return false
+    }
+  }
+
+  /// If the given node can be wrapped in a .quantify instruction
+  /// Currently only allows nodes that match a single grapheme
+  func shouldDoFastQuant(_ opts: MatchingOptions) -> Bool {
+    switch self {
+    case .customCharacterClass(let ccc):
+      // Only quantify ascii only character classes
+      return ccc.asAsciiBitset(opts) != nil
+    case .atom(let atom):
+      switch atom {
+      case .char(let c):
+        // Only quantify the most common path -> Single scalar ascii values
+        return c._singleScalarAsciiValue != nil
+      case .dot, .any, .anyNonNewline:
+        // Always quantify any/dot
+        return true
+      case .characterClass(let cc):
+        // Only quantify if it consumes a single grapheme
+        return cc.model.consumesSingleGrapheme
+      default:
+        return false
+      }
+    case .convertedRegexLiteral(let node, _):
+      return node.shouldDoFastQuant(opts)
+    case .nonCapturingGroup(let kind, let child):
+      switch kind.ast {
+      case .nonCapture:
+        return child.shouldDoFastQuant(opts)
+      default:
+        return false
+      }
+    case .orderedChoice:
+      // Future work: Could we support ordered choice by compacting our payload
+      // representation and supporting an alternation of up to N supported nodes?
+      return false
+    default:
+      return false
     }
   }
 }

@@ -59,7 +59,11 @@ extension Processor.SavePoint {
     if let p = self.pos {
       posStr = "\(input.distance(from: input.startIndex, to: p))"
     } else {
-      posStr = "<none>"
+      if rangeIsEmpty {
+        posStr = "<none>"
+      } else {
+        posStr = "\(rangeStart!...rangeEnd!)"
+      }
     }
     return """
       pc: \(self.pc), pos: \(posStr), stackEnd: \(stackEnd)

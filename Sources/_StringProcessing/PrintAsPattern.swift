@@ -694,6 +694,41 @@ extension DSLTree.Atom.Assertion {
   }
 }
 
+extension DSLTree.Atom.CharacterClass {
+  var _patternBase: String {
+    switch self {
+    case .anyGrapheme:
+      return ".anyGraphemeCluster"
+    case .anyUnicodeScalar:
+      return ".anyUnicodeScalar"
+    case .digit:
+      return ".digit"
+    case .notDigit:
+      return ".digit.inverted"
+    case .word:
+      return ".word"
+    case .notWord:
+      return ".word.inverted"
+    case .horizontalWhitespace:
+      return ".horizontalWhitespace"
+    case .notHorizontalWhitespace:
+      return ".horizontalWhitespace.inverted"
+    case .newlineSequence:
+      return ".newlineSequence"
+    case .notNewline:
+      return ".newlineSequence.inverted"
+    case .verticalWhitespace:
+      return ".verticalWhitespace"
+    case .notVerticalWhitespace:
+      return ".vertialWhitespace.inverted"
+    case .whitespace:
+      return ".whitespace"
+    case .notWhitespace:
+      return ".whitespace.inverted"
+    }
+  }
+}
+
 extension AST.Atom.CharacterProperty {
   var isUnprintableProperty: Bool {
     switch kind {
@@ -1166,6 +1201,8 @@ extension DSLTree.Atom {
       
     case .assertion(let a):
       return (a._patternBase, false)
+    case .characterClass(let cc):
+      return (cc._patternBase, true)
       
     case .backreference(_):
       return ("/* TOOD: backreferences */", false)
@@ -1210,6 +1247,8 @@ extension DSLTree.Atom {
       
     case .assertion:
       return "/* TODO: assertions */"
+    case .characterClass:
+      return "/* TODO: character classes */"
     case .backreference:
       return "/* TOOD: backreferences */"
     case .symbolicReference:

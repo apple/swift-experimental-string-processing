@@ -58,6 +58,14 @@ public struct _RegexFactory {
   ) -> Regex<Output> {
     .init(node: .atom(.scalar(scalar)))
   }
+
+  @_spi(RegexBuilder)
+  @available(SwiftStdlib 5.7, *)
+  public func characterClass<Output>(
+    _ cc: DSLTree.Atom.CharacterClass
+  ) -> Regex<Output> {
+    .init(node: .atom(.characterClass(cc)))
+  }
   
   @_spi(RegexBuilder)
   @available(SwiftStdlib 5.7, *)

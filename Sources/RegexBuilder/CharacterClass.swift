@@ -15,27 +15,39 @@
 @available(SwiftStdlib 5.7, *)
 public struct CharacterClass {
   internal var ccc: DSLTree.CustomCharacterClass
+  /// The builtin character class, if this CharacterClass is representable by one
+  internal var builtin: DSLTree.Atom.CharacterClass?
   
   init(_ ccc: DSLTree.CustomCharacterClass) {
     self.ccc = ccc
+    self.builtin = nil
   }
   
-  init(unconverted atom: DSLTree._AST.Atom) {
-    self.ccc = .init(members: [.atom(.unconverted(atom))])
+  init(builtin: DSLTree.Atom.CharacterClass) {
+    self.ccc = .init(members: [.atom(.characterClass(builtin))])
+    self.builtin = builtin
   }
 }
 
 @available(SwiftStdlib 5.7, *)
 extension CharacterClass: RegexComponent {
   public var regex: Regex<Substring> {
-    _RegexFactory().customCharacterClass(ccc)
+    if let cc = builtin {
+      return _RegexFactory().characterClass(cc)
+    } else {
+      return _RegexFactory().customCharacterClass(ccc)
+    }
   }
 }
 
 @available(SwiftStdlib 5.7, *)
 extension CharacterClass {
   public var inverted: CharacterClass {
-    CharacterClass(ccc.inverted)
+    if let inv = builtin?.inverted {
+      return CharacterClass(builtin: inv)
+    } else {
+      return CharacterClass(ccc.inverted)
+    }
   }
 }
 
@@ -50,15 +62,15 @@ extension RegexComponent where Self == CharacterClass {
   }
 
   public static var anyGraphemeCluster: CharacterClass {
-    .init(unconverted: ._anyGrapheme)
+    .init(builtin: .anyGrapheme)
   }
   
   public static var whitespace: CharacterClass {
-    .init(unconverted: ._whitespace)
+    .init(builtin: .whitespace)
   }
   
   public static var digit: CharacterClass {
-    .init(unconverted: ._digit)
+    .init(builtin: .digit)
   }
   
   public static var hexDigit: CharacterClass {
@@ -70,19 +82,19 @@ extension RegexComponent where Self == CharacterClass {
   }
 
   public static var horizontalWhitespace: CharacterClass {
-    .init(unconverted: ._horizontalWhitespace)
+    .init(builtin: .horizontalWhitespace)
   }
 
   public static var newlineSequence: CharacterClass {
-    .init(unconverted: ._newlineSequence)
+    .init(builtin: .newlineSequence)
   }
 
   public static var verticalWhitespace: CharacterClass {
-    .init(unconverted: ._verticalWhitespace)
+    .init(builtin: .verticalWhitespace)
   }
 
   public static var word: CharacterClass {
-    .init(unconverted: ._word)
+    .init(builtin: .word)
   }
 }
 

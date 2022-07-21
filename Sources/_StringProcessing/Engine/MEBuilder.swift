@@ -20,7 +20,6 @@ extension MEProgram {
 
     var asciiBitsets: [DSLTree.CustomCharacterClass.AsciiBitset] = []
     var consumeFunctions: [ConsumeFunction] = []
-    var assertionFunctions: [AssertionFunction] = []
     var transformFunctions: [TransformFunction] = []
     var matcherFunctions: [MatcherFunction] = []
 
@@ -171,6 +170,15 @@ extension MEProgram.Builder {
     instructions.append(.init(
       .matchBitset, .init(bitset: makeAsciiBitset(b), isScalar: true)))
   }
+  
+  mutating func buildMatchBuiltin(
+    _ cc: _CharacterClassModel,
+    _ isStrict: Bool,
+    isScalar: Bool
+  ) {
+    instructions.append(.init(
+      .matchBuiltin, .init(cc.cc, cc.isInverted, isStrict, isScalar)))
+  }
 
   mutating func buildConsume(
     by p: @escaping MEProgram.ConsumeFunction
@@ -180,10 +188,68 @@ extension MEProgram.Builder {
   }
 
   mutating func buildAssert(
-    by p: @escaping MEProgram.AssertionFunction
+    by kind: DSLTree.Atom.Assertion,
+    _ anchorsMatchNewlines: Bool,
+    _ usesSimpleUnicodeBoundaries: Bool,
+    _ usesASCIIWord: Bool,
+    _ semanticLevel: MatchingOptions.SemanticLevel
+  ) {
+    let payload = AssertionPayload.init(
+      kind,
+      anchorsMatchNewlines,
+      usesSimpleUnicodeBoundaries,
+      usesASCIIWord,
+      semanticLevel)
+    instructions.append(.init(
+      .assertBy,
+      .init(assertion: payload)))
+  }
+
+  mutating func buildQuantify(
+    bitset: DSLTree.CustomCharacterClass.AsciiBitset,
+    _ kind: AST.Quantification.Kind,
+    _ minTrips: Int,
+    _ extraTrips: Int?
   ) {
     instructions.append(.init(
-      .assertBy, .init(assertion: makeAssertionFunction(p))))
+      .quantify,
+      .init(quantify: .init(bitset: makeAsciiBitset(bitset), kind, minTrips, extraTrips))))
+  }
+
+  mutating func buildQuantify(
+    asciiChar: UInt8,
+    _ kind: AST.Quantification.Kind,
+    _ minTrips: Int,
+    _ extraTrips: Int?
+  ) {
+    instructions.append(.init(
+      .quantify,
+      .init(quantify: .init(asciiChar: asciiChar, kind, minTrips, extraTrips))))
+  }
+
+  mutating func buildQuantifyAny(
+    matchesNewlines: Bool,
+    _ kind: AST.Quantification.Kind,
+    _ minTrips: Int,
+    _ extraTrips: Int?
+  ) {
+    instructions.append(.init(
+      .quantify,
+      .init(quantify: .init(matchesNewlines: matchesNewlines, kind, minTrips, extraTrips))))
+  }
+
+  mutating func buildQuantify(
+    builtin: _CharacterClassModel.Representation,
+    isStrict: Bool,
+    isInverted: Bool,
+    _ kind: AST.Quantification.Kind,
+    _ minTrips: Int,
+    _ extraTrips: Int?
+  ) {
+    instructions.append(.init(
+      .quantify,
+      .init(quantify: .init(builtin: builtin,
+                            isStrict, isInverted, kind, minTrips, extraTrips))))
   }
 
   mutating func buildAccept() {
@@ -306,7 +372,6 @@ extension MEProgram.Builder {
     regInfo.positions = nextPositionRegister.rawValue
     regInfo.bitsets = asciiBitsets.count
     regInfo.consumeFunctions = consumeFunctions.count
-    regInfo.assertionFunctions = assertionFunctions.count
     regInfo.transformFunctions = transformFunctions.count
     regInfo.matcherFunctions = matcherFunctions.count
     regInfo.captures = nextCaptureRegister.rawValue
@@ -317,7 +382,6 @@ extension MEProgram.Builder {
       staticSequences: sequences.stored,
       staticBitsets: asciiBitsets,
       staticConsumeFunctions: consumeFunctions,
-      staticAssertionFunctions: assertionFunctions,
       staticTransformFunctions: transformFunctions,
       staticMatcherFunctions: matcherFunctions,
       registerInfo: regInfo,
@@ -465,12 +529,6 @@ extension MEProgram.Builder {
   ) -> ConsumeFunctionRegister {
     defer { consumeFunctions.append(f) }
     return ConsumeFunctionRegister(consumeFunctions.count)
-  }
-  mutating func makeAssertionFunction(
-    _ f: @escaping MEProgram.AssertionFunction
-  ) -> AssertionFunctionRegister {
-    defer { assertionFunctions.append(f) }
-    return AssertionFunctionRegister(assertionFunctions.count)
   }
   mutating func makeTransformFunction(
     _ f: @escaping MEProgram.TransformFunction

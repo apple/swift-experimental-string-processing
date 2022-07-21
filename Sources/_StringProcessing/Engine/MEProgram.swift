@@ -15,14 +15,6 @@ struct MEProgram {
   typealias Input = String
 
   typealias ConsumeFunction = (Input, Range<Input.Index>) -> Input.Index?
-  typealias AssertionFunction =
-    (
-      inout Set<String.Index>?,
-      inout String.Index?,
-      Input,
-      Input.Index,
-      Range<Input.Index>
-    ) throws -> Bool
   typealias TransformFunction =
     (Input, Processor._StoredCapture) throws -> Any?
   typealias MatcherFunction =
@@ -34,7 +26,6 @@ struct MEProgram {
   var staticSequences: [[Input.Element]]
   var staticBitsets: [DSLTree.CustomCharacterClass.AsciiBitset]
   var staticConsumeFunctions: [ConsumeFunction]
-  var staticAssertionFunctions: [AssertionFunction]
   var staticTransformFunctions: [TransformFunction]
   var staticMatcherFunctions: [MatcherFunction]
 

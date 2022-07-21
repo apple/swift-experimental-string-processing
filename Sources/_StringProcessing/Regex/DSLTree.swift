@@ -177,6 +177,7 @@ extension DSLTree {
     /// newlines unless single line mode is enabled.
     case dot
 
+    case characterClass(CharacterClass)
     case assertion(Assertion)
     case backreference(_AST.Reference)
     case symbolicReference(ReferenceID)
@@ -189,9 +190,9 @@ extension DSLTree {
 
 extension DSLTree.Atom {
   @_spi(RegexBuilder)
-  public enum Assertion: Hashable {
+  public enum Assertion: UInt64, Hashable {
     /// \A
-    case startOfSubject
+    case startOfSubject = 0
 
     /// \Z
     case endOfSubjectBeforeNewline
@@ -230,6 +231,46 @@ extension DSLTree.Atom {
 
     /// \B
     case notWordBoundary
+  }
+  
+  @_spi(RegexBuilder)
+  public enum CharacterClass: Hashable {
+    case digit
+    case notDigit
+    case horizontalWhitespace
+    case notHorizontalWhitespace
+    case newlineSequence
+    case notNewline
+    case whitespace
+    case notWhitespace
+    case verticalWhitespace
+    case notVerticalWhitespace
+    case word
+    case notWord
+    case anyGrapheme
+    case anyUnicodeScalar
+  }
+}
+
+extension DSLTree.Atom.CharacterClass {
+  @_spi(RegexBuilder)
+  public var inverted: DSLTree.Atom.CharacterClass? {
+    switch self {
+    case .anyGrapheme: return nil
+    case .anyUnicodeScalar: return nil
+    case .digit: return .notDigit
+    case .notDigit: return .digit
+    case .word: return .notWord
+    case .notWord: return .word
+    case .horizontalWhitespace: return .notHorizontalWhitespace
+    case .notHorizontalWhitespace: return .horizontalWhitespace
+    case .newlineSequence: return .notNewline
+    case .notNewline: return .newlineSequence
+    case .verticalWhitespace: return .notVerticalWhitespace
+    case .notVerticalWhitespace: return .verticalWhitespace
+    case .whitespace: return .notWhitespace
+    case .notWhitespace: return .whitespace
+    }
   }
 }
 
@@ -759,34 +800,8 @@ extension DSLTree {
       internal var ast: AST.MatchingOptionSequence
     }
     
-    @_spi(RegexBuilder)
     public struct Atom {
       internal var ast: AST.Atom
-
-      // FIXME: The below APIs should be removed once the DSL tree has been
-      // migrated to use proper DSL atoms for them.
-
-      public static var _anyGrapheme: Self {
-        .init(ast: .init(.escaped(.graphemeCluster), .fake))
-      }
-      public static var _whitespace: Self {
-        .init(ast: .init(.escaped(.whitespace), .fake))
-      }
-      public static var _digit: Self {
-        .init(ast: .init(.escaped(.decimalDigit), .fake))
-      }
-      public static var _horizontalWhitespace: Self {
-        .init(ast: .init(.escaped(.horizontalWhitespace), .fake))
-      }
-      public static var _newlineSequence: Self {
-        .init(ast: .init(.escaped(.newlineSequence), .fake))
-      }
-      public static var _verticalWhitespace: Self {
-        .init(ast: .init(.escaped(.verticalTab), .fake))
-      }
-      public static var _word: Self {
-        .init(ast: .init(.escaped(.wordCharacter), .fake))
-      }
     }
   }
 }
@@ -800,7 +815,7 @@ extension DSLTree.Atom {
     case .changeMatchingOptions, .assertion:
       return false
     case .char, .scalar, .any, .anyNonNewline, .dot, .backreference,
-        .symbolicReference, .unconverted:
+        .symbolicReference, .unconverted, .characterClass:
       return true
     }
   }

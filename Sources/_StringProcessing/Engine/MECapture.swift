@@ -88,12 +88,6 @@ extension Processor {
   }
 }
 
-extension Processor._StoredCapture: CustomStringConvertible {
-  var description: String {
-    return String(describing: self)
-  }
-}
-
 struct MECaptureList {
   var values: Array<Processor._StoredCapture>
   var referencedCaptureOffsets: [ReferenceID: Int]
