@@ -89,7 +89,7 @@ extension BenchmarkRunner {
     try results.save(to: url)
   }
   
-  func compare(against compareFilePath: String) throws {
+  func compare(against compareFilePath: String, showChart: Bool) throws {
     let compareFileURL = URL(fileURLWithPath: compareFilePath)
     let compareResult = try SuiteResult.load(from: compareFileURL)
     let compareFile = compareFileURL.lastPathComponent
@@ -121,6 +121,32 @@ extension BenchmarkRunner {
     for item in improvements {
       printComparison(name: item.key, diff: item.value)
     }
+
+    #if os(macOS)
+    if showChart {
+      print("""
+        === Comparison chart =================================================================
+        Press Control-C to close...
+        """)
+      BenchmarkResultApp.comparisons = {
+        var comparisons: [BenchmarkChart.Comparison] = []
+        for (name, baseline) in compareResult.results {
+          if let latest = results.results[name] {
+            comparisons.append(
+              .init(name: name, baseline: baseline, latest: latest))
+          }
+        }
+        return comparisons.sorted {
+          let delta0 = Float($0.latest.median.seconds - $0.baseline.median.seconds)
+            / Float($0.baseline.median.seconds)
+          let delta1 = Float($1.latest.median.seconds - $1.baseline.median.seconds)
+            / Float($1.baseline.median.seconds)
+          return delta0 > delta1
+        }
+      }()
+      BenchmarkResultApp.main()
+    }
+    #endif
   }
 }
 
@@ -128,7 +154,7 @@ struct BenchmarkResult: Codable {
   let median: Time
   let stdev: Double
   let samples: Int
-  
+
   init(_ median: Time, _ stdev: Double, _ samples: Int) {
     self.median = median
     self.stdev = stdev

@@ -17,6 +17,9 @@ struct Runner: ParsableCommand {
   @Option(help: "The result file to compare against")
   var compare: String?
 
+  @Flag(help: "Show comparison chart")
+  var showChart: Bool = false
+
   @Flag(help: "Quiet mode")
   var quiet = false
 
@@ -40,11 +43,11 @@ struct Runner: ParsableCommand {
         runner.suite = runner.suite.filter { b in !b.name.contains("NS") }
       }
       runner.run()
-      if let compareFile = compare {
-        try runner.compare(against: compareFile)
-      }
       if let saveFile = save {
         try runner.save(to: saveFile)
+      }
+      if let compareFile = compare {
+        try runner.compare(against: compareFile, showChart: showChart)
       }
     }
   }
