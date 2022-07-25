@@ -191,6 +191,7 @@ func firstMatchTests(
   enableTracing: Bool = false,
   dumpAST: Bool = false,
   xfail: Bool = false,
+  semanticLevel: RegexSemanticLevel = .graphemeCluster,
   file: StaticString = #filePath,
   line: UInt = #line
 ) {
@@ -203,6 +204,7 @@ func firstMatchTests(
       enableTracing: enableTracing,
       dumpAST: dumpAST,
       xfail: xfail,
+      semanticLevel: semanticLevel,
       file: file,
       line: line)
   }
@@ -310,6 +312,55 @@ extension RegexTests {
       #"\u{006f 031b 0323}"#,
       input: "\u{006f}\u{031b}\u{0323}",
       match: "\u{006f}\u{031b}\u{0323}"
+    )
+
+    // e + combining accents
+    firstMatchTest(
+      #"e\u{301 302 303}"#,
+      input: "e\u{301}\u{302}\u{303}",
+      match: "e\u{301}\u{302}\u{303}"
+    )
+    firstMatchTest(
+      #"e\u{315 35C 301}"#,
+      input: "e\u{301}\u{315}\u{35C}",
+      match: "e\u{301}\u{315}\u{35C}"
+    )
+    firstMatchTest(
+      #"e\u{301}\u{302 303}"#,
+      input: "e\u{301}\u{302}\u{303}",
+      match: "e\u{301}\u{302}\u{303}"
+    )
+    firstMatchTest(
+      #"e\u{35C}\u{315 301}"#,
+      input: "e\u{301}\u{315}\u{35C}",
+      match: "e\u{301}\u{315}\u{35C}"
+    )
+    firstMatchTest(
+      #"e\u{35C}\u{315 301}"#,
+      input: "e\u{315}\u{301}\u{35C}",
+      match: "e\u{315}\u{301}\u{35C}"
+    )
+    firstMatchTest(
+      #"e\u{301}\de\u{302}"#,
+      input: "e\u{301}0e\u{302}",
+      match: "e\u{301}0e\u{302}"
+    )
+    firstMatchTest(
+      #"(?x) e \u{35C} \u{315}(?#hello)\u{301}"#,
+      input: "e\u{301}\u{315}\u{35C}",
+      match: "e\u{301}\u{315}\u{35C}"
+    )
+    firstMatchTest(
+      #"(?x) e \u{35C} \u{315 301}"#,
+      input: "e\u{301}\u{315}\u{35C}",
+      match: "e\u{301}\u{315}\u{35C}"
+    )
+
+    // We don't coalesce across groups.
+    firstMatchTests(
+      #"e\u{301}(?:\u{315}\u{35C})?"#,
+      ("e\u{301}", "e\u{301}"),
+      ("e\u{301}\u{315}\u{35C}", nil)
     )
 
     // Escape sequences that represent scalar values.
@@ -686,6 +737,331 @@ extension RegexTests {
       #"[a]\u0301"#,
       ("a\u{301}", true),
       semanticLevel: .unicodeScalar)
+
+    // Scalar matching in quoted sequences.
+    firstMatchTests(
+      "[\\Qe\u{301}\\E]",
+      ("e", nil),
+      ("E", nil),
+      ("\u{301}", nil),
+      (eDecomposed, eDecomposed),
+      (eComposed, eComposed),
+      ("E\u{301}", nil),
+      ("\u{C9}", nil)
+    )
+    firstMatchTests(
+      "[\\Qe\u{301}\\E]",
+      ("e", "e"),
+      ("E", nil),
+      ("\u{301}", "\u{301}"),
+      (eDecomposed, "e"),
+      (eComposed, nil),
+      ("E\u{301}", "\u{301}"),
+      ("\u{C9}", nil),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      "(?i)[\\Qe\u{301}\\E]",
+      ("e", nil),
+      ("E", nil),
+      ("\u{301}", nil),
+      (eDecomposed, eDecomposed),
+      (eComposed, eComposed),
+      ("E\u{301}", "E\u{301}"),
+      ("\u{C9}", "\u{C9}")
+    )
+    firstMatchTests(
+      "(?i)[\\Qe\u{301}\\E]",
+      ("e", "e"),
+      ("E", "E"),
+      ("\u{301}", "\u{301}"),
+      (eDecomposed, "e"),
+      (eComposed, nil),
+      ("E\u{301}", "E"),
+      ("\u{C9}", nil),
+      semanticLevel: .unicodeScalar
+    )
+
+    // Scalar coalescing.
+    firstMatchTests(
+      #"[e\u{301}]"#,
+      (eDecomposed, eDecomposed),
+      (eComposed, eComposed),
+      ("e", nil),
+      ("\u{301}", nil)
+    )
+    firstMatchTests(
+      #"[e\u{301}]"#,
+      (eDecomposed, "e"),
+      (eComposed, nil),
+      ("e", "e"),
+      ("\u{301}", "\u{301}"),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[[[e\u{301}]]]"#,
+      (eDecomposed, eDecomposed),
+      (eComposed, eComposed),
+      ("e", nil),
+      ("\u{301}", nil)
+    )
+    firstMatchTests(
+      #"[[[e\u{301}]]]"#,
+      (eDecomposed, "e"),
+      (eComposed, nil),
+      ("e", "e"),
+      ("\u{301}", "\u{301}"),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[👨\u{200D}👩\u{200D}👧\u{200D}👦]"#,
+      ("👨", nil),
+      ("👩", nil),
+      ("👧", nil),
+      ("👦", nil),
+      ("\u{200D}", nil),
+      ("👨‍👩‍👧‍👦", "👨‍👩‍👧‍👦")
+    )
+    firstMatchTests(
+      #"[👨\u{200D}👩\u{200D}👧\u{200D}👦]"#,
+      ("👨", "👨"),
+      ("👩", "👩"),
+      ("👧", "👧"),
+      ("👦", "👦"),
+      ("\u{200D}", "\u{200D}"),
+      ("👨‍👩‍👧‍👦", "👨"),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[e\u{315}\u{301}\u{35C}]"#,
+      ("e", nil),
+      ("e\u{315}", nil),
+      ("e\u{301}", nil),
+      ("e\u{315}\u{301}\u{35C}", "e\u{315}\u{301}\u{35C}"),
+      ("e\u{301}\u{315}\u{35C}", "e\u{301}\u{315}\u{35C}"),
+      ("e\u{35C}\u{301}\u{315}", "e\u{35C}\u{301}\u{315}")
+    )
+    firstMatchTests(
+      #"(?x) [ e \u{315} \u{301} \u{35C} ]"#,
+      ("e", nil),
+      ("e\u{315}", nil),
+      ("e\u{301}", nil),
+      ("e\u{315}\u{301}\u{35C}", "e\u{315}\u{301}\u{35C}"),
+      ("e\u{301}\u{315}\u{35C}", "e\u{301}\u{315}\u{35C}"),
+      ("e\u{35C}\u{301}\u{315}", "e\u{35C}\u{301}\u{315}")
+    )
+
+    // We don't coalesce across character classes.
+    firstMatchTests(
+      #"e[\u{315}\u{301}\u{35C}]"#,
+      ("e", nil),
+      ("e\u{315}", nil),
+      ("e\u{315}\u{301}", nil),
+      ("e\u{301}\u{315}\u{35C}", nil)
+    )
+    firstMatchTests(
+      #"[e[\u{301}]]"#,
+      ("e", "e"),
+      ("\u{301}", "\u{301}"),
+      ("e\u{301}", nil)
+    )
+
+    firstMatchTests(
+      #"[a-z1\u{E9}-\u{302}\u{E1}3-59]"#,
+      ("a", "a"),
+      ("a\u{301}", "a\u{301}"),
+      ("\u{E1}", "\u{E1}"),
+      ("\u{E2}", nil),
+      ("z", "z"),
+      ("e", "e"),
+      (eDecomposed, eDecomposed),
+      (eComposed, eComposed),
+      ("\u{302}", "\u{302}"),
+      ("1", "1"),
+      ("2", nil),
+      ("3", "3"),
+      ("4", "4"),
+      ("5", "5"),
+      ("6", nil),
+      ("7", nil),
+      ("8", nil),
+      ("9", "9")
+    )
+    firstMatchTests(
+      #"[ab-df-hik-lm]"#,
+      ("a", "a"),
+      ("b", "b"),
+      ("c", "c"),
+      ("d", "d"),
+      ("e", nil),
+      ("f", "f"),
+      ("g", "g"),
+      ("h", "h"),
+      ("i", "i"),
+      ("j", nil),
+      ("k", "k"),
+      ("l", "l"),
+      ("m", "m")
+    )
+    firstMatchTests(
+      #"[a-ce-fh-j]"#,
+      ("a", "a"),
+      ("b", "b"),
+      ("c", "c"),
+      ("d", nil),
+      ("e", "e"),
+      ("f", "f"),
+      ("g", nil),
+      ("h", "h"),
+      ("i", "i"),
+      ("j", "j")
+    )
+
+
+    // These can't compile in grapheme semantic mode, but make sure they work in
+    // scalar semantic mode.
+    firstMatchTests(
+      #"[a\u{315}\u{301}-\u{302}]"#,
+      ("a", "a"),
+      ("\u{315}", "\u{315}"),
+      ("\u{301}", "\u{301}"),
+      ("\u{302}", "\u{302}"),
+      ("\u{303}", nil),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[\u{73}\u{323}\u{307}-\u{1E00}]"#,
+      ("\u{73}", "\u{73}"),
+      ("\u{323}", "\u{323}"),
+      ("\u{307}", "\u{307}"),
+      ("\u{400}", "\u{400}"),
+      ("\u{500}", "\u{500}"),
+      ("\u{1E00}", "\u{1E00}"),
+      ("\u{1E01}", nil),
+      ("\u{1E69}", nil),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[a\u{302}-✅]"#,
+      ("a", "a"),
+      ("\u{302}", "\u{302}"),
+      ("A\u{302}", "\u{302}"),
+      ("E\u{301}", nil),
+      ("a\u{301}", "a"),
+      ("\u{E1}", nil),
+      ("a\u{302}", "a"),
+      ("\u{E2}", nil),
+      ("\u{E3}", nil),
+      ("\u{EF}", nil),
+      ("e\u{301}", nil),
+      ("e\u{302}", "\u{302}"),
+      ("\u{2705}", "\u{2705}"),
+      ("✅", "✅"),
+      ("\u{376}", "\u{376}"),
+      ("\u{850}", "\u{850}"),
+      ("a\u{302}\u{315}", "a"),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"(?i)[a\u{302}-✅]"#,
+      ("a", "a"),
+      ("\u{302}", "\u{302}"),
+      ("A\u{302}", "A"),
+      ("E\u{301}", nil),
+      ("a\u{301}", "a"),
+      ("\u{E1}", nil),
+      ("a\u{302}", "a"),
+      ("\u{E2}", nil),
+      ("\u{E3}", nil),
+      ("\u{EF}", nil),
+      ("e\u{301}", nil),
+      ("e\u{302}", "\u{302}"),
+      ("\u{2705}", "\u{2705}"),
+      ("✅", "✅"),
+      ("\u{376}", "\u{376}"),
+      ("\u{850}", "\u{850}"),
+      ("a\u{302}\u{315}", "a"),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"[e\u{301}-\u{302}]"#,
+      ("a", nil),
+      ("e", "e"),
+      ("\u{302}", "\u{302}"),
+      ("A\u{302}", "\u{302}"),
+      ("E\u{301}", "\u{301}"),
+      ("\u{C8}", nil),
+      ("\u{C9}", nil),
+      ("\u{CA}", nil),
+      ("\u{CB}", nil),
+      ("a\u{301}", "\u{301}"),
+      ("a\u{302}", "\u{302}"),
+      ("e\u{301}", "e"),
+      ("e\u{302}", "e"),
+      ("\u{E1}", nil),
+      ("\u{E2}", nil),
+      ("\u{E9}", nil),
+      ("\u{EA}", nil),
+      ("\u{EF}", nil),
+      semanticLevel: .unicodeScalar
+    )
+    firstMatchTests(
+      #"(?i)[e\u{301}-\u{302}]"#,
+      ("a", nil),
+      ("e", "e"),
+      ("\u{302}", "\u{302}"),
+      ("A\u{302}", "\u{302}"),
+      ("E\u{301}", "E"),
+      ("\u{C8}", nil),
+      ("\u{C9}", nil),
+      ("\u{CA}", nil),
+      ("\u{CB}", nil),
+      ("a\u{301}", "\u{301}"),
+      ("a\u{302}", "\u{302}"),
+      ("e\u{301}", "e"),
+      ("e\u{302}", "e"),
+      ("\u{E1}", nil),
+      ("\u{E2}", nil),
+      ("\u{E9}", nil),
+      ("\u{EA}", nil),
+      ("\u{EF}", nil),
+      semanticLevel: .unicodeScalar
+    )
+
+    // Set operation scalar coalescing.
+    firstMatchTests(
+      #"[e\u{301}&&e\u{301}e\u{302}]"#,
+      ("e", nil),
+      ("\u{301}", nil),
+      ("\u{302}", nil),
+      ("e\u{301}", "e\u{301}"),
+      ("e\u{302}", nil))
+    firstMatchTests(
+      #"[e\u{301}~~[[e\u{301}]e\u{302}]]"#,
+      ("e", nil),
+      ("\u{301}", nil),
+      ("\u{302}", nil),
+      ("e\u{301}", nil),
+      ("e\u{302}", "e\u{302}"))
+    firstMatchTests(
+      #"[e\u{301}[e\u{303}]--[[e\u{301}]e\u{302}]]"#,
+      ("e", nil),
+      ("\u{301}", nil),
+      ("\u{302}", nil),
+      ("\u{303}", nil),
+      ("e\u{301}", nil),
+      ("e\u{302}", nil),
+      ("e\u{303}", "e\u{303}"))
+
+    firstMatchTests(
+      #"(?x) [ e \u{301} [ e \u{303} ] -- [ [ e \u{301} ] e \u{302} ] ]"#,
+      ("e", nil),
+      ("\u{301}", nil),
+      ("\u{302}", nil),
+      ("\u{303}", nil),
+      ("e\u{301}", nil),
+      ("e\u{302}", nil),
+      ("e\u{303}", "e\u{303}"))
 
     firstMatchTest("[-]", input: "123-abcxyz", match: "-")
 
@@ -1852,6 +2228,16 @@ extension RegexTests {
       #"e$"#,
       (eComposed, false),
       (eDecomposed, false))
+
+    matchTest(
+      #"\u{65 301}"#,
+      (eComposed, true),
+      (eDecomposed, true))
+
+    matchTest(
+      #"(?x) \u{65} \u{301}"#,
+      (eComposed, true),
+      (eDecomposed, true))
   }
 
   func testCanonicalEquivalenceCharacterClass() throws {

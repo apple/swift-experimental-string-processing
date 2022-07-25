@@ -197,10 +197,71 @@ extension RenderDSLTests {
       }
       """#)
 
-    // TODO: We ought to try and preserve the scalar syntax here.
     try testConversion(#"a\u{301}"#, #"""
       Regex {
-        "á"
+        "a\u{301}"
+      }
+      """#)
+
+    try testConversion(#"(?x) a \u{301}"#, #"""
+      Regex {
+        "a\u{301}"
+      }
+      """#)
+
+    try testConversion(#"(?x) [ a b c \u{301} ] "#, #"""
+      Regex {
+        One(.anyOf("abc\u{301}"))
+      }
+      """#)
+
+    try testConversion(#"👨\u{200D}👨\u{200D}👧\u{200D}👦"#, #"""
+      Regex {
+        "👨\u{200D}👨\u{200D}👧\u{200D}👦"
+      }
+      """#)
+
+    try testConversion(#"(👨\u{200D}👨)\u{200D}👧\u{200D}👦"#, #"""
+      Regex {
+        Capture {
+          "👨\u{200D}👨"
+        }
+        "\u{200D}👧\u{200D}👦"
+      }
+      """#)
+
+    // We preserve the structure of non-capturing groups.
+    try testConversion(#"abcd(?:e\u{301}\d)"#, #"""
+      Regex {
+        "abcd"
+        Regex {
+          "e\u{301}"
+          One(.digit)
+        }
+      }
+      """#)
+
+    try testConversion(#"\u{A B C}"#, #"""
+      Regex {
+        "\u{A}\u{B}\u{C}"
+      }
+      """#)
+
+    // TODO: We might want to consider preserving scalar sequences in the DSL,
+    // and allowing them to merge with other concatenations.
+    try testConversion(#"\u{A B C}\u{d}efg"#, #"""
+      Regex {
+        "\u{A}\u{B}\u{C}"
+        "\u{D}efg"
+      }
+      """#)
+
+    // FIXME: We don't actually have a way of specifying in the DSL that we
+    // shouldn't join these together, should we print them as regex instead?
+    try testConversion(#"a(?:\u{301})"#, #"""
+      Regex {
+        "a"
+        "\u{301}"
       }
       """#)
   }

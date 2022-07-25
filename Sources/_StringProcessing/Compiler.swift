@@ -42,19 +42,43 @@ class Compiler {
   }
 }
 
+/// Hashable wrapper for `Any.Type`.
+struct AnyHashableType: CustomStringConvertible, Hashable {
+  var ty: Any.Type
+  init(_ ty: Any.Type) {
+    self.ty = ty
+  }
+  var description: String { "\(ty)" }
+
+  static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.ty == rhs.ty
+  }
+  func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(ty))
+  }
+}
+
 // An error produced when compiling a regular expression.
-enum RegexCompilationError: Error, CustomStringConvertible {
+enum RegexCompilationError: Error, Hashable, CustomStringConvertible {
   // TODO: Source location?
   case uncapturedReference
+  case incorrectOutputType(incorrect: AnyHashableType, correct: AnyHashableType)
+  case invalidCharacterClassRangeOperand(Character)
 
-  case incorrectOutputType(incorrect: Any.Type, correct: Any.Type)
-  
+  static func incorrectOutputType(
+    incorrect: Any.Type, correct: Any.Type
+  ) -> Self {
+    .incorrectOutputType(incorrect: .init(incorrect), correct: .init(correct))
+  }
+
   var description: String {
     switch self {
     case .uncapturedReference:
       return "Found a reference used before it captured any match."
     case .incorrectOutputType(let incorrect, let correct):
       return "Cast to incorrect type 'Regex<\(incorrect)>', expected 'Regex<\(correct)>'"
+    case .invalidCharacterClassRangeOperand(let c):
+      return "'\(c)' is an invalid bound for character class range"
     }
   }
 }

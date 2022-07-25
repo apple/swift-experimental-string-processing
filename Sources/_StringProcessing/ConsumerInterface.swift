@@ -63,7 +63,7 @@ extension DSLTree._AST.Atom {
 extension Character {
   func generateConsumer(
     _ opts: MatchingOptions
-  ) throws -> MEProgram.ConsumeFunction? {
+  ) throws -> MEProgram.ConsumeFunction {
     let isCaseInsensitive = opts.isCaseInsensitive
     switch opts.semanticLevel {
     case .graphemeCluster:
@@ -327,24 +327,25 @@ extension DSLTree.CustomCharacterClass.Member {
     _ opts: MatchingOptions,
     _ isInverted: Bool
   ) -> DSLTree.CustomCharacterClass.AsciiBitset? {
+    typealias Bitset = DSLTree.CustomCharacterClass.AsciiBitset
     switch self {
     case let .atom(a):
       if let val = a.singleScalarASCIIValue {
-        return DSLTree.CustomCharacterClass.AsciiBitset(
-          val,
-          isInverted,
-          opts.isCaseInsensitive
-        )
+        return Bitset(val, isInverted, opts.isCaseInsensitive)
       }
     case let .range(low, high):
-      if let lowVal = low.singleScalarASCIIValue, let highVal = high.singleScalarASCIIValue {
-        return DSLTree.CustomCharacterClass.AsciiBitset(
-          low: lowVal,
-          high: highVal,
-          isInverted: isInverted,
-          isCaseInsensitive: opts.isCaseInsensitive
-        )
+      if let lowVal = low.singleScalarASCIIValue,
+         let highVal = high.singleScalarASCIIValue {
+        return Bitset(low: lowVal, high: highVal, isInverted: isInverted,
+                      isCaseInsensitive: opts.isCaseInsensitive)
       }
+    case .quotedLiteral(let str):
+      var bitset = Bitset(isInverted: isInverted)
+      for c in str {
+        guard let ascii = c._singleScalarAsciiValue else { return nil }
+        bitset = bitset.union(Bitset(ascii, isInverted, opts.isCaseInsensitive))
+      }
+      return bitset
     default:
       return nil
     }
@@ -361,11 +362,19 @@ extension DSLTree.CustomCharacterClass.Member {
       }
       return c
     case let .range(low, high):
-      guard let lhs = low.literalCharacterValue?.singleScalar, lhs.isNFC else {
+      guard let lhsChar = low.literalCharacterValue else {
         throw Unsupported("\(low) in range")
       }
-      guard let rhs = high.literalCharacterValue?.singleScalar, rhs.isNFC else {
+      guard let rhsChar = high.literalCharacterValue else {
         throw Unsupported("\(high) in range")
+      }
+
+      // We must have NFC single scalar bounds.
+      guard let lhs = lhsChar.singleScalar, lhs.isNFC else {
+        throw RegexCompilationError.invalidCharacterClassRangeOperand(lhsChar)
+      }
+      guard let rhs = rhsChar.singleScalar, rhs.isNFC else {
+        throw RegexCompilationError.invalidCharacterClassRangeOperand(rhsChar)
       }
       guard lhs <= rhs else {
         throw Unsupported("Invalid range \(low)-\(high)")
@@ -456,21 +465,17 @@ extension DSLTree.CustomCharacterClass.Member {
         }
         return rhs(input, bounds)
       }
-    case .quotedLiteral(let s):
-      if opts.isCaseInsensitive {
-        return { input, bounds in
-          guard s.lowercased()._contains(input[bounds.lowerBound].lowercased()) else {
-            return nil
+    case .quotedLiteral(let str):
+      let consumers = try str.map {
+        try $0.generateConsumer(opts)
+      }
+      return { input, bounds in
+        for fn in consumers {
+          if let idx = fn(input, bounds) {
+            return idx
           }
-          return input.index(after: bounds.lowerBound)
         }
-      } else {
-        return { input, bounds in
-          guard s.contains(input[bounds.lowerBound]) else {
-            return nil
-          }
-          return input.index(after: bounds.lowerBound)
-        }
+        return nil
       }
     case .trivia:
       // TODO: Should probably strip this earlier...

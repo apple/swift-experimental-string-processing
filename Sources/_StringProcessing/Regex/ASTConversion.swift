@@ -43,61 +43,7 @@ extension AST.Node {
         return .orderedChoice(children)
 
       case let .concatenation(v):
-        // Coalesce adjacent children who can produce a
-        // string literal representation
-        let astChildren = v.children
-        func coalesce(
-          _ idx: Array<AST>.Index
-        ) -> (Array<AST>.Index, String)? {
-          var result = ""
-          var idx = idx
-          while idx < astChildren.endIndex {
-            guard let atom: AST.Atom = astChildren[idx].as() else { break }
-
-            // TODO: For printing, nice to coalesce
-            // scalars literals too. We likely need a different
-            // approach even before we have a better IR.
-            if let char = atom.singleCharacter  {
-              result.append(char)
-            } else if let scalar = atom.singleScalar {
-              result.append(Character(scalar))
-            } else if case .scalarSequence(let seq) = atom.kind {
-              result += seq.scalarValues.map(Character.init)
-            } else {
-              break
-            }
-            
-            astChildren.formIndex(after: &idx)
-          }
-          return result.isEmpty ? nil : (idx, result)
-        }
-
-        // No need to nest single children concatenations
-        if astChildren.count == 1 {
-          return astChildren.first!.dslTreeNode
-        }
-
-        // Check for a single child post-coalescing
-        if let (idx, str) = coalesce(astChildren.startIndex),
-           idx == astChildren.endIndex
-        {
-          return .quotedLiteral(str)
-        }
-
-        // Coalesce adjacent string children
-        var curIdx = astChildren.startIndex
-        var children = Array<DSLTree.Node>()
-        while curIdx < astChildren.endIndex {
-          if let (nextIdx, str) = coalesce(curIdx) {
-            // TODO: Track source info...
-            children.append(.quotedLiteral(str))
-            curIdx = nextIdx
-          } else {
-            children.append(astChildren[curIdx].dslTreeNode)
-            astChildren.formIndex(after: &curIdx)
-          }
-        }
-        return .concatenation(children)
+        return .concatenation(v.children.map(\.dslTreeNode))
 
       case let .group(v):
         let child = v.child.dslTreeNode
@@ -135,10 +81,9 @@ extension AST.Node {
       case let .atom(v):
         switch v.kind {
         case .scalarSequence(let seq):
-          // Scalar sequences are splatted into concatenated scalars, which
-          // becomes a quoted literal. Sequences nested in concatenations have
-          // already been coalesced, this just handles the lone atom case.
-          return .quotedLiteral(String(seq.scalarValues.map(Character.init)))
+          // The DSL doesn't have an equivalent node for scalar sequences. Splat
+          // them into a concatenation of scalars.
+          return .concatenation(seq.scalarValues.map { .atom(.scalar($0)) })
         default:
           return .atom(v.dslTreeAtom)
         }

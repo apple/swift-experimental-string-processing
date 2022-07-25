@@ -775,9 +775,131 @@ fileprivate extension Compiler.ByteCodeGen {
     builder.label(exit)
   }
 
+  /// Coalesce any adjacent scalar members in a custom character class together.
+  /// This is required in order to produce correct grapheme matching behavior.
+  func coalescingCustomCharacterClassMembers(
+    _ members: [DSLTree.CustomCharacterClass.Member]
+  ) -> [DSLTree.CustomCharacterClass.Member] {
+    struct Accumulator {
+      /// A series of range operands. For example, in `[ab-cde-fg]`, this will
+      /// contain the strings `["ab", "cde", "fg"]`. From there, the resulting
+      /// ranges will be created.
+      private var rangeOperands: [String] = [""]
+
+      /// The current range operand.
+      private var current: String {
+        _read { yield rangeOperands[rangeOperands.count - 1] }
+        _modify { yield &rangeOperands[rangeOperands.count - 1] }
+      }
+
+      /// Try to accumulate a character class member, returning `true` if
+      /// successful, `false` otherwise.
+      mutating func tryAccumulate(
+        _ member: DSLTree.CustomCharacterClass.Member
+      ) -> Bool {
+        switch member {
+        case .atom(let a):
+          guard let c = a.literalCharacterValue else { return false }
+          current.append(c)
+          return true
+        case .quotedLiteral(let str):
+          current += str
+          return true
+        case let .range(lhs, rhs):
+          guard let lhs = lhs.literalCharacterValue,
+                let rhs = rhs.literalCharacterValue
+          else { return false }
+          current.append(lhs)
+          rangeOperands.append(String(rhs))
+          return true
+        case .trivia:
+          // Trivia can be completely ignored if we've already coalesced
+          // something.
+          return !current.isEmpty
+        default:
+          return false
+        }
+      }
+
+      func finish() -> [DSLTree.CustomCharacterClass.Member] {
+        if rangeOperands.count == 1 {
+          // If we didn't have any additional range operands, this isn't a
+          // range, we can just form a standard quoted literal.
+          return [.quotedLiteral(current)]
+        }
+        var members = [DSLTree.CustomCharacterClass.Member]()
+
+        // We have other range operands, splice them together. For N operands
+        // we have N - 1 ranges.
+        for (i, lhs) in rangeOperands.dropLast().enumerated() {
+          let rhs = rangeOperands[i + 1]
+
+          // If this is the first operand we only need to drop the last
+          // character for its quoted members, otherwise this is both an LHS
+          // and RHS of a range, and as such needs both sides trimmed.
+          let leading = i == 0 ? lhs.dropLast() : lhs.dropFirst().dropLast()
+          if !leading.isEmpty {
+            members.append(.quotedLiteral(String(leading)))
+          }
+          members.append(.range(.char(lhs.last!), .char(rhs.first!)))
+        }
+        // We've handled everything except the quoted portion of the last
+        // operand, add it now.
+        let trailing = rangeOperands.last!.dropFirst()
+        if !trailing.isEmpty {
+          members.append(.quotedLiteral(String(trailing)))
+        }
+        return members
+      }
+    }
+    return members
+      .map { m -> DSLTree.CustomCharacterClass.Member in
+        // First we need to recursively coalsce any child character classes.
+        switch m {
+        case .custom(let ccc):
+          return .custom(coalescingCustomCharacterClass(ccc))
+        case .intersection(let lhs, let rhs):
+          return .intersection(
+            coalescingCustomCharacterClass(lhs),
+            coalescingCustomCharacterClass(rhs))
+        case .subtraction(let lhs, let rhs):
+          return .subtraction(
+            coalescingCustomCharacterClass(lhs),
+            coalescingCustomCharacterClass(rhs))
+        case .symmetricDifference(let lhs, let rhs):
+          return .symmetricDifference(
+            coalescingCustomCharacterClass(lhs),
+            coalescingCustomCharacterClass(rhs))
+        case .atom, .range, .quotedLiteral, .trivia:
+          return m
+        }
+      }
+      .coalescing(with: Accumulator(), into: { $0.finish() }) { accum, member in
+        accum.tryAccumulate(member)
+      }
+  }
+
+  func coalescingCustomCharacterClass(
+    _ ccc: DSLTree.CustomCharacterClass
+  ) -> DSLTree.CustomCharacterClass {
+    // This only needs to be done in grapheme semantic mode. In scalar semantic
+    // mode, we don't want to coalesce any scalars into a grapheme. This
+    // means that e.g `[e\u{301}-\u{302}]` remains a range between U+301 and
+    // U+302.
+    guard options.semanticLevel == .graphemeCluster else { return ccc }
+
+    let members = coalescingCustomCharacterClassMembers(ccc.members)
+    return .init(members: members, isInverted: ccc.isInverted)
+  }
+
   mutating func emitCustomCharacterClass(
     _ ccc: DSLTree.CustomCharacterClass
   ) throws {
+    // Before emitting a custom character class in grapheme semantic mode, we
+    // need to coalesce together any adjacent characters and scalars, over which
+    // we can perform grapheme breaking. This includes e.g range bounds for
+    // `[e\u{301}-\u{302}]`.
+    let ccc = coalescingCustomCharacterClass(ccc)
     if let asciiBitset = ccc.asAsciiBitset(options),
         optimizationsEnabled {
       if options.semanticLevel == .unicodeScalar {
@@ -791,6 +913,45 @@ fileprivate extension Compiler.ByteCodeGen {
     }
   }
 
+  mutating func emitConcatenation(_ children: [DSLTree.Node]) throws {
+    // Before emitting a concatenation, we need to flatten out any nested
+    // concatenations, and coalesce any adjacent characters and scalars, forming
+    // quoted literals of their contents, over which we can perform grapheme
+    // breaking.
+    func flatten(_ node: DSLTree.Node) -> [DSLTree.Node] {
+      switch node {
+      case .concatenation(let ch):
+        return ch.flatMap(flatten)
+      case .convertedRegexLiteral(let n, _):
+        return flatten(n)
+      default:
+        return [node]
+      }
+    }
+    let children = children
+      .flatMap(flatten)
+      .coalescing(with: "", into: DSLTree.Node.quotedLiteral) { str, node in
+        switch node {
+        case .atom(let a):
+          guard let c = a.literalCharacterValue else { return false }
+          str.append(c)
+          return true
+        case .quotedLiteral(let q):
+          str += q
+          return true
+        case .trivia:
+          // Trivia can be completely ignored if we've already coalesced
+          // something.
+          return !str.isEmpty
+        default:
+          return false
+        }
+      }
+    for child in children {
+      try emitConcatenationComponent(child)
+    }
+  }
+
   @discardableResult
   mutating func emitNode(_ node: DSLTree.Node) throws -> ValueRegister? {
     switch node {
@@ -799,9 +960,7 @@ fileprivate extension Compiler.ByteCodeGen {
       try emitAlternation(children)
 
     case let .concatenation(children):
-      for child in children {
-        try emitConcatenationComponent(child)
-      }
+      try emitConcatenation(children)
 
     case let .capture(name, refId, child, transform):
       options.beginScope()

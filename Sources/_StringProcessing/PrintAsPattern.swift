@@ -70,16 +70,9 @@ extension PrettyPrinter {
     for namedCapture in namedCaptures {
       print("let \(namedCapture) = Reference(Substring.self)")
     }
-    
-    switch node {
-    case .concatenation(_):
-      printAsPattern(convertedFromAST: node)
-    case .convertedRegexLiteral(.concatenation(_), _):
-      printAsPattern(convertedFromAST: node)
-    default:
-      printBlock("Regex") { printer in
-        printer.printAsPattern(convertedFromAST: node)
-      }
+
+    printBlock("Regex") { printer in
+      printer.printAsPattern(convertedFromAST: node, isTopLevel: true)
     }
   }
 
@@ -89,7 +82,7 @@ extension PrettyPrinter {
   // to have a non-backing-off pretty-printer that this
   // can defer to.
   private mutating func printAsPattern(
-    convertedFromAST node: DSLTree.Node
+    convertedFromAST node: DSLTree.Node, isTopLevel: Bool = false
   ) {
     if patternBackoff(DSLTree._Tree(node)) {
       printBackoff(node)
@@ -106,11 +99,7 @@ extension PrettyPrinter {
       }
 
     case let .concatenation(c):
-      printBlock("Regex") { printer in
-        c.forEach {
-          printer.printAsPattern(convertedFromAST: $0)
-        }
-      }
+      printConcatenationAsPattern(c, isTopLevel: isTopLevel)
 
     case let .nonCapturingGroup(kind, child):
       switch kind.ast {
@@ -273,7 +262,7 @@ extension PrettyPrinter {
       // check above, so it should work out. Need a
       // cleaner way to do this. This means the argument
       // label is a lie.
-      printAsPattern(convertedFromAST: n)
+      printAsPattern(convertedFromAST: n, isTopLevel: isTopLevel)
 
     case let .customCharacterClass(ccc):
       printAsPattern(ccc)
@@ -287,6 +276,64 @@ extension PrettyPrinter {
 
     case .absentFunction:
       print("/* TODO: absent function */")
+    }
+  }
+
+  enum NodeToPrint {
+    case dslNode(DSLTree.Node)
+    case stringLiteral(String)
+  }
+
+  mutating func printAsPattern(_ node: NodeToPrint) {
+    switch node {
+    case .dslNode(let n):
+      printAsPattern(convertedFromAST: n)
+    case .stringLiteral(let str):
+      print(str)
+    }
+  }
+
+  mutating func printConcatenationAsPattern(
+    _ nodes: [DSLTree.Node], isTopLevel: Bool
+  ) {
+    // We need to coalesce any adjacent character and scalar elements into a
+    // string literal, preserving scalar syntax.
+    let nodes = nodes
+      .map { NodeToPrint.dslNode($0.lookingThroughConvertedLiteral) }
+      .coalescing(
+        with: StringLiteralBuilder(), into: { .stringLiteral($0.result) }
+      ) { literal, node in
+        guard case .dslNode(let node) = node else { return false }
+        switch node {
+        case let .atom(.char(c)):
+          literal.append(c)
+          return true
+        case let .atom(.scalar(s)):
+          literal.append(unescaped: s._dslBase)
+          return true
+        case .quotedLiteral(let q):
+          literal.append(q)
+          return true
+        case .trivia:
+          // Trivia can be completely ignored if we've already coalesced
+          // something.
+          return !literal.isEmpty
+        default:
+          return false
+        }
+      }
+    if isTopLevel || nodes.count == 1 {
+      // If we're at the top level, or we coalesced everything into a single
+      // element, we don't need to print a surrounding Regex { ... }.
+      for n in nodes {
+        printAsPattern(n)
+      }
+      return
+    }
+    printBlock("Regex") { printer in
+      for n in nodes {
+        printer.printAsPattern(n)
+      }
     }
   }
   
@@ -351,8 +398,7 @@ extension PrettyPrinter {
           charMembers.append(c)
           return false
         case let .scalar(s):
-          charMembers.append(
-            unescaped: "\\u{\(String(s.value, radix: 16, uppercase: true))}")
+          charMembers.append(unescaped: s._dslBase)
           return false
         case .unconverted(_):
           return true
@@ -459,9 +505,9 @@ extension PrettyPrinter {
       case let .scalar(s):
         
         if wrap {
-          output("One(.anyOf(\"\\u{\(String(s.value, radix: 16, uppercase: true))}\"))")
+          output("One(.anyOf(\(s._dslBase._bareQuoted)))")
         } else {
-          output(".anyOf(\"\\u{\(String(s.value, radix: 16, uppercase: true))}\")")
+          output(".anyOf(\(s._dslBase._bareQuoted))")
         }
         
       case let .unconverted(a):
@@ -633,6 +679,10 @@ extension String {
   fileprivate var _bareQuoted: String {
     #""\#(self)""#
   }
+}
+
+extension UnicodeScalar {
+  var _dslBase: String { "\\u{\(String(value, radix: 16, uppercase: true))}" }
 }
 
 /// A helper for building string literals, which handles escaping the contents
@@ -861,19 +911,15 @@ extension AST.Atom {
   }
   
   var _dslBase: (String, canBeWrapped: Bool) {
-    func scalarLiteral(_ s: UnicodeScalar) -> String {
-      let hex = String(s.value, radix: 16, uppercase: true)
-      return "\\u{\(hex)}"
-    }
     switch kind {
     case let .char(c):
       return (String(c), false)
 
     case let .scalar(s):
-      return (scalarLiteral(s.value), false)
+      return (s.value._dslBase, false)
 
     case let .scalarSequence(seq):
-      return (seq.scalarValues.map(scalarLiteral).joined(), false)
+      return (seq.scalarValues.map(\._dslBase).joined(), false)
 
     case let .property(p):
       return (p._dslBase, true)

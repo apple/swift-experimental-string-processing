@@ -2929,6 +2929,8 @@ extension RegexTests {
     diagnosticTest(#"[c-b]"#, .invalidCharacterRange(from: "c", to: "b"))
     diagnosticTest(#"[\u{66}-\u{65}]"#, .invalidCharacterRange(from: "\u{66}", to: "\u{65}"))
 
+    diagnosticTest(#"[e\u{301}-e\u{302}]"#, .invalidCharacterRange(from: "\u{301}", to: "e"))
+
     diagnosticTest("(?x)[(?#)]", .expected("]"))
     diagnosticTest("(?x)[(?#abc)]", .expected("]"))
 

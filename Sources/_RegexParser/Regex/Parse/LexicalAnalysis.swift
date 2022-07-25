@@ -480,35 +480,37 @@ extension Parser {
   ///
   mutating func lexQuantifier(
   ) -> (Located<Quant.Amount>, Located<Quant.Kind>, [AST.Trivia])? {
-    var trivia: [AST.Trivia] = []
+    tryEating { p in
+      var trivia: [AST.Trivia] = []
 
-    if let t = lexNonSemanticWhitespace() { trivia.append(t) }
+      if let t = p.lexNonSemanticWhitespace() { trivia.append(t) }
 
-    let amt: Located<Quant.Amount>? = recordLoc { p in
-      if p.tryEat("*") { return .zeroOrMore }
-      if p.tryEat("+") { return .oneOrMore }
-      if p.tryEat("?") { return .zeroOrOne }
+      let amt: Located<Quant.Amount>? = p.recordLoc { p in
+        if p.tryEat("*") { return .zeroOrMore }
+        if p.tryEat("+") { return .oneOrMore }
+        if p.tryEat("?") { return .zeroOrOne }
 
-      return p.tryEating { p in
-        guard p.tryEat("{"),
-              let range = p.lexRange(trivia: &trivia),
-              p.tryEat("}")
-        else { return nil }
-        return range.value
+        return p.tryEating { p in
+          guard p.tryEat("{"),
+                let range = p.lexRange(trivia: &trivia),
+                p.tryEat("}")
+          else { return nil }
+          return range.value
+        }
       }
+      guard let amt = amt else { return nil }
+
+      // PCRE allows non-semantic whitespace here in extended syntax mode.
+      if let t = p.lexNonSemanticWhitespace() { trivia.append(t) }
+
+      let kind: Located<Quant.Kind> = p.recordLoc { p in
+        if p.tryEat("?") { return .reluctant  }
+        if p.tryEat("+") { return .possessive }
+        return .eager
+      }
+
+      return (amt, kind, trivia)
     }
-    guard let amt = amt else { return nil }
-
-    // PCRE allows non-semantic whitespace here in extended syntax mode.
-    if let t = lexNonSemanticWhitespace() { trivia.append(t) }
-
-    let kind: Located<Quant.Kind> = recordLoc { p in
-      if p.tryEat("?") { return .reluctant  }
-      if p.tryEat("+") { return .possessive }
-      return .eager
-    }
-
-    return (amt, kind, trivia)
   }
 
   /// Try to consume a range, returning `nil` if unsuccessful.
