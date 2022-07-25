@@ -142,10 +142,6 @@ enum _AsciiBitsetRegister {}
 typealias ConsumeFunctionRegister = TypedInt<_ConsumeFunctionRegister>
 enum _ConsumeFunctionRegister {}
 
-/// Used for assertion functions, e.g. anchors etc
-typealias AssertionFunctionRegister = TypedInt<_AssertionFunctionRegister>
-enum _AssertionFunctionRegister {}
-
 /// Used for capture transforms, etc
 typealias TransformRegister = TypedInt<_TransformRegister>
 enum _TransformRegister {}

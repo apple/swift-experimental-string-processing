@@ -27,17 +27,15 @@ struct _CharacterClassModel: Hashable {
   var isInverted: Bool = false
 
   // TODO: Split out builtin character classes into their own type?
-  enum Representation: Hashable {
+  enum Representation: UInt64, Hashable {
     /// Any character
-    case any
+    case any = 0
     /// Any grapheme cluster
     case anyGrapheme
     /// Any Unicode scalar
     case anyScalar
     /// Character.isDigit
     case digit
-    /// Character.isHexDigit
-    case hexDigit
     /// Horizontal whitespace: `[:blank:]`, i.e
     /// `[\p{gc=Space_Separator}\N{CHARACTER TABULATION}]
     case horizontalWhitespace
@@ -70,22 +68,24 @@ struct _CharacterClassModel: Hashable {
     return result
   }
 
-  /// Conditionally inverts a character class.
-  ///
-  /// - Parameter inversion: Indicates whether to invert the character class.
-  /// - Returns: The inverted character class if `inversion` is `true`;
-  ///   otherwise, the same character class.
-  func withInversion(_ inversion: Bool) -> Self {
-    var copy = self
-    if inversion {
-      copy.isInverted.toggle()
+  /// Returns true if this CharacterClass should be matched by strict ascii under the given options
+  func isStrictAscii(options: MatchingOptions) -> Bool {
+    switch self.cc {
+    case .digit: return options.usesASCIIDigits
+    case .horizontalWhitespace: return options.usesASCIISpaces
+    case .newlineSequence: return options.usesASCIISpaces
+    case .verticalWhitespace: return options.usesASCIISpaces
+    case .whitespace: return options.usesASCIISpaces
+    case .word: return options.usesASCIIWord
+    default: return false
     }
-    return copy
   }
 
   /// Inverts a character class.
   var inverted: Self {
-    return withInversion(true)
+    var copy = self
+    copy.isInverted.toggle()
+    return copy
   }
   
   /// Returns the end of the match of this character class in the string.
@@ -95,6 +95,9 @@ struct _CharacterClassModel: Hashable {
   /// - Parameter options: Options for the match operation.
   /// - Returns: The index of the end of the match, or `nil` if there is no match.
   func matches(in str: String, at i: String.Index, with options: MatchingOptions) -> String.Index? {
+    // FIXME: This is only called in custom character classes that contain builtin
+    // character classes as members (ie: [a\w] or set operations), is there
+    // any way to avoid that? Can we remove this somehow?
     switch matchLevel {
     case .graphemeCluster:
       let c = str[i]
@@ -107,8 +110,6 @@ struct _CharacterClassModel: Hashable {
         next = str.unicodeScalars.index(after: i)
       case .digit:
         matched = c.isNumber && (c.isASCII || !options.usesASCIIDigits)
-      case .hexDigit:
-        matched = c.isHexDigit && (c.isASCII || !options.usesASCIIDigits)
       case .horizontalWhitespace:
         matched = c.unicodeScalars.first?.isHorizontalWhitespace == true
           && (c.isASCII || !options.usesASCIISpaces)
@@ -136,8 +137,6 @@ struct _CharacterClassModel: Hashable {
         nextIndex = str.index(after: i)
       case .digit:
         matched = c.properties.numericType != nil && (c.isASCII || !options.usesASCIIDigits)
-      case .hexDigit:
-        matched = Character(c).isHexDigit && (c.isASCII || !options.usesASCIIDigits)
       case .horizontalWhitespace:
         matched = c.isHorizontalWhitespace && (c.isASCII || !options.usesASCIISpaces)
       case .verticalWhitespace:
@@ -180,10 +179,6 @@ extension _CharacterClassModel {
   static var digit: _CharacterClassModel {
     .init(cc: .digit, matchLevel: .graphemeCluster)
   }
-  
-  static var hexDigit: _CharacterClassModel {
-    .init(cc: .hexDigit, matchLevel: .graphemeCluster)
-  }
 
   static var horizontalWhitespace: _CharacterClassModel {
     .init(cc: .horizontalWhitespace, matchLevel: .graphemeCluster)
@@ -209,7 +204,6 @@ extension _CharacterClassModel.Representation: CustomStringConvertible {
     case .anyGrapheme: return "<any grapheme>"
     case .anyScalar: return "<any scalar>"
     case .digit: return "<digit>"
-    case .hexDigit: return "<hex digit>"
     case .horizontalWhitespace: return "<horizontal whitespace>"
     case .newlineSequence: return "<newline sequence>"
     case .verticalWhitespace: return "vertical whitespace"
@@ -235,37 +229,11 @@ extension _CharacterClassModel {
   }
 }
 
-extension AST.Atom {
-    var characterClass: _CharacterClassModel? {
-    switch kind {
-    case let .escaped(b): return b.characterClass
-
-    case .property:
-      // TODO: Would our model type for character classes include
-      // this? Or does grapheme-semantic mode complicate that?
-      return nil
-      
-    case .dot:
-      // `.dot` is handled in the matching engine by Compiler.emitDot() and in
-      // the legacy compiler by the `.any` instruction, which can provide lower
-      // level instructions than the CharacterClass-generated consumer closure
-      //
-      // FIXME: We shouldn't be returning `nil` here, but instead fixing the call
-      // site to check for any before trying to construct a character class.
-      return nil
-
-    default: return nil
-
-    }
-  }
-
-}
-
-extension AST.Atom.EscapedBuiltin {
-    var characterClass: _CharacterClassModel? {
+extension DSLTree.Atom.CharacterClass {
+    var model: _CharacterClassModel {
     switch self {
-    case .decimalDigit:    return .digit
-    case .notDecimalDigit: return .digit.inverted
+    case .digit:    return .digit
+    case .notDigit: return .digit.inverted
 
     case .horizontalWhitespace: return .horizontalWhitespace
     case .notHorizontalWhitespace:
@@ -281,46 +249,14 @@ extension AST.Atom.EscapedBuiltin {
     case .whitespace:    return .whitespace
     case .notWhitespace: return .whitespace.inverted
 
-    case .verticalTab:    return .verticalWhitespace
-    case .notVerticalTab: return .verticalWhitespace.inverted
+    case .verticalWhitespace:    return .verticalWhitespace
+    case .notVerticalWhitespace: return .verticalWhitespace.inverted
 
-    case .wordCharacter:    return .word
-    case .notWordCharacter: return .word.inverted
+    case .word:    return .word
+    case .notWord: return .word.inverted
 
-    case .graphemeCluster: return .anyGrapheme
-    case .trueAnychar: return .anyUnicodeScalar
-
-    default:
-      return nil
+    case .anyGrapheme: return .anyGrapheme
+    case .anyUnicodeScalar: return .anyUnicodeScalar
     }
   }
-}
-
-extension _CharacterClassModel {
-  // FIXME: Calling on inverted sets wont be the same as the
-  // inverse of a boundary if at the start or end of the
-  // string. (Think through what we want: do it ourselves or
-  // give the caller both options).
-  func isBoundary(
-    _ input: String,
-    at pos: String.Index,
-    bounds: Range<String.Index>,
-    with options: MatchingOptions
-  ) -> Bool {
-    // FIXME: How should we handle bounds?
-    // We probably need two concepts
-    if bounds.isEmpty { return false }
-    if pos == bounds.lowerBound {
-      return self.matches(in: input, at: pos, with: options) != nil
-    }
-    let priorIdx = input.index(before: pos)
-    if pos == bounds.upperBound {
-      return self.matches(in: input, at: priorIdx, with: options) != nil
-    }
-
-    let prior = self.matches(in: input, at: priorIdx, with: options) != nil
-    let current = self.matches(in: input, at: pos, with: options) != nil
-    return prior != current
-  }
-
 }

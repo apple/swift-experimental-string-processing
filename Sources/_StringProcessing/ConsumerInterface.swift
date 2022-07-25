@@ -162,6 +162,8 @@ extension DSLTree.Atom {
     case .assertion:
       // TODO: We could handle, should this be total?
       return nil
+    case .characterClass(let cc):
+      return cc.generateConsumer(opts)
 
     case .backreference:
       // TODO: Should we handle?
@@ -179,6 +181,16 @@ extension DSLTree.Atom {
       return try a.ast.generateConsumer(opts)
     }
 
+  }
+}
+
+extension DSLTree.Atom.CharacterClass {
+  func generateConsumer(_ opts: MatchingOptions) -> MEProgram.ConsumeFunction {
+    return { input, bounds in
+      // FIXME: should we worry about out of bounds?
+      model.withMatchLevel(opts.matchLevel)
+        .matches(in: input, at: bounds.lowerBound, with: opts)
+    }
   }
 }
 
@@ -269,16 +281,6 @@ extension AST.Atom {
   func generateConsumer(
     _ opts: MatchingOptions
   ) throws -> MEProgram.ConsumeFunction? {
-    // TODO: Wean ourselves off of this type...
-    if let cc = self.characterClass?.withMatchLevel(
-      opts.matchLevel
-    ) {
-      return { input, bounds in
-        // FIXME: should we worry about out of bounds?
-        cc.matches(in: input, at: bounds.lowerBound, with: opts)
-      }
-    }
-
     switch kind {
     case let .scalar(s):
       assertionFailure(
@@ -312,8 +314,11 @@ extension AST.Atom {
     case .caretAnchor, .dollarAnchor:
       // handled in emitAssertion
       return nil
+    case .escaped:
+      // handled in emitAssertion and emitCharacterClass
+      return nil
 
-    case .scalarSequence, .escaped, .keyboardControl, .keyboardMeta,
+    case .scalarSequence, .keyboardControl, .keyboardMeta,
         .keyboardMetaControl, .backreference, .subpattern, .callout,
         .backtrackingDirective, .changeMatchingOptions, .invalid:
       // FIXME: implement

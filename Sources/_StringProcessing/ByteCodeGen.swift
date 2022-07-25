@@ -74,6 +74,9 @@ fileprivate extension Compiler.ByteCodeGen {
         emitMatchScalar(s)
       }
 
+    case let .characterClass(cc):
+      emitCharacterClass(cc)
+
     case let .assertion(kind):
       try emitAssertion(kind)
 
@@ -148,147 +151,27 @@ fileprivate extension Compiler.ByteCodeGen {
     }
   }
 
-  mutating func emitStartOfLine() {
-    builder.buildAssert { [semanticLevel = options.semanticLevel]
-        (_, _, input, pos, subjectBounds) in
-      if pos == subjectBounds.lowerBound { return true }
-      switch semanticLevel {
-      case .graphemeCluster:
-        return input[input.index(before: pos)].isNewline
-      case .unicodeScalar:
-        return input.unicodeScalars[input.unicodeScalars.index(before: pos)].isNewline
-      }
-    }
-  }
-
-  mutating func emitEndOfLine() {
-    builder.buildAssert { [semanticLevel = options.semanticLevel]
-      (_, _, input, pos, subjectBounds) in
-      if pos == subjectBounds.upperBound { return true }
-      switch semanticLevel {
-      case .graphemeCluster:
-        return input[pos].isNewline
-      case .unicodeScalar:
-        return input.unicodeScalars[pos].isNewline
-      }
-    }
-  }
-
   mutating func emitAssertion(
     _ kind: DSLTree.Atom.Assertion
   ) throws {
-    // FIXME: Depends on API model we have... We may want to
-    // think through some of these with API interactions in mind
-    //
-    // This might break how we use `bounds` for both slicing
-    // and things like `firstIndex`, that is `firstIndex` may
-    // need to supply both a slice bounds and a per-search bounds.
-    switch kind {
-    case .startOfSubject:
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in
-        pos == subjectBounds.lowerBound
-      }
-
-    case .endOfSubjectBeforeNewline:
-      builder.buildAssert { [semanticLevel = options.semanticLevel]
-          (_, _, input, pos, subjectBounds) in
-        if pos == subjectBounds.upperBound { return true }
-        switch semanticLevel {
-        case .graphemeCluster:
-          return input.index(after: pos) == subjectBounds.upperBound
-           && input[pos].isNewline
-        case .unicodeScalar:
-          return input.unicodeScalars.index(after: pos) == subjectBounds.upperBound
-           && input.unicodeScalars[pos].isNewline
-        }
-      }
-
-    case .endOfSubject:
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in
-        pos == subjectBounds.upperBound
-      }
-
-    case .resetStartOfMatch:
-      // FIXME: Figure out how to communicate this out
+    if kind == .resetStartOfMatch {
       throw Unsupported(#"\K (reset/keep assertion)"#)
-
-    case .firstMatchingPositionInSubject:
-      // TODO: We can probably build a nice model with API here
-      
-      // FIXME: This needs to be based on `searchBounds`,
-      // not the `subjectBounds` given as an argument here
-      builder.buildAssert { (_, _, input, pos, subjectBounds) in false }
-
-    case .textSegment:
-      builder.buildAssert { (_, _, input, pos, _) in
-        // FIXME: Grapheme or word based on options
-        input.isOnGraphemeClusterBoundary(pos)
-      }
-
-    case .notTextSegment:
-      builder.buildAssert { (_, _, input, pos, _) in
-        // FIXME: Grapheme or word based on options
-        !input.isOnGraphemeClusterBoundary(pos)
-      }
-
-    case .startOfLine:
-      emitStartOfLine()
-
-    case .endOfLine:
-      emitEndOfLine()
-
-    case .caretAnchor:
-      if options.anchorsMatchNewlines {
-        emitStartOfLine()
-      } else {
-        builder.buildAssert { (_, _, input, pos, subjectBounds) in
-          pos == subjectBounds.lowerBound
-        }
-      }
-
-    case .dollarAnchor:
-      if options.anchorsMatchNewlines {
-        emitEndOfLine()
-      } else {
-        builder.buildAssert { (_, _, input, pos, subjectBounds) in
-          pos == subjectBounds.upperBound
-        }
-      }
-
-    case .wordBoundary:
-      builder.buildAssert { [options]
-          (cache, maxIndex, input, pos, subjectBounds) in
-        if options.usesSimpleUnicodeBoundaries {
-          // TODO: How should we handle bounds?
-          return _CharacterClassModel.word.isBoundary(
-            input,
-            at: pos,
-            bounds: subjectBounds,
-            with: options
-          )
-        } else {
-          return input.isOnWordBoundary(at: pos, using: &cache, &maxIndex)
-        }
-      }
-
-    case .notWordBoundary:
-      builder.buildAssert { [options]
-          (cache, maxIndex, input, pos, subjectBounds) in
-        if options.usesSimpleUnicodeBoundaries {
-          // TODO: How should we handle bounds?
-          return !_CharacterClassModel.word.isBoundary(
-            input,
-            at: pos,
-            bounds: subjectBounds,
-            with: options
-          )
-        } else {
-          return !input.isOnWordBoundary(at: pos, using: &cache, &maxIndex)
-        }
-      }
     }
+    builder.buildAssert(
+      by: kind,
+      options.anchorsMatchNewlines,
+      options.usesSimpleUnicodeBoundaries,
+      options.usesASCIIWord,
+      options.semanticLevel)
   }
-  
+
+  mutating func emitCharacterClass(_ cc: DSLTree.Atom.CharacterClass) {
+    builder.buildMatchBuiltin(
+      cc.model,
+      cc.model.isStrictAscii(options: options),
+      isScalar: options.semanticLevel == .unicodeScalar)
+  }
+
   mutating func emitMatchScalar(_ s: UnicodeScalar) {
     assert(options.semanticLevel == .unicodeScalar)
     if options.isCaseInsensitive && s.properties.isCased {
@@ -785,10 +668,10 @@ fileprivate extension Compiler.ByteCodeGen {
       } else {
         builder.buildMatchAsciiBitset(asciiBitset)
       }
-    } else {
-      let consumer = try ccc.generateConsumer(options)
-      builder.buildConsume(by: consumer)
+      return
     }
+    let consumer = try ccc.generateConsumer(options)
+    builder.buildConsume(by: consumer)
   }
 
   @discardableResult

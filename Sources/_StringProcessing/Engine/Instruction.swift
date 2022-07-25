@@ -113,11 +113,7 @@ extension Instruction {
     ///  - Boolean for if we should match by scalar value
     case matchBitset
 
-    /// TODO: builtin assertions and anchors
-    case builtinAssertion
-
-    /// TODO: builtin character classes
-    case builtinCharacterClass
+    case matchBuiltin
 
     // MARK: Extension points
 
@@ -127,16 +123,12 @@ extension Instruction {
     /// Operand: Consume function register to call.
     case consumeBy
 
-    /// Custom lookaround assertion operation.
-    /// Triggers a failure if customFunction returns false.
+    /// Lookaround assertion operation. Performs a zero width assertion based on
+    /// the assertion type and options stored in the payload
     ///
-    ///     assert(_ customFunction: (
-    ///       input: Input,
-    ///       currentPos: Position,
-    ///       bounds: Range<Position>
-    ///     ) -> Bool)
+    ///     assert(_:AssertionPayload)
     ///
-    /// Operands: destination bool register, assert hook register
+    /// Operands: AssertionPayload containing assertion type and options
     case assertBy
 
     /// Custom value-creating consume operation.

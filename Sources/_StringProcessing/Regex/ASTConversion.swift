@@ -223,6 +223,25 @@ extension AST.Atom.EscapedBuiltin {
     default: return nil
     }
   }
+  var dslCharacterClass: DSLTree.Atom.CharacterClass? {
+    switch self {
+    case .decimalDigit:             return .digit
+    case .notDecimalDigit:          return .notDigit
+    case .horizontalWhitespace:     return .horizontalWhitespace
+    case .notHorizontalWhitespace:  return .notHorizontalWhitespace
+    case .newlineSequence:          return .newlineSequence
+    case .notNewline:               return .notNewline
+    case .whitespace:               return .whitespace
+    case .notWhitespace:            return .notWhitespace
+    case .verticalTab:              return .verticalWhitespace
+    case .notVerticalTab:           return .notVerticalWhitespace
+    case .wordCharacter:            return .word
+    case .notWordCharacter:         return .notWord
+    case .graphemeCluster:          return .anyGrapheme
+    case .trueAnychar:              return .anyUnicodeScalar
+    default: return nil
+    }
+  }
 }
 
 extension AST.Atom {
@@ -234,12 +253,22 @@ extension AST.Atom {
     default: return nil
     }
   }
+  var dslCharacterClass: DSLTree.Atom.CharacterClass? {
+    switch kind {
+    case .escaped(let b): return b.dslCharacterClass
+    default: return nil
+    }
+  }
 }
 
 extension AST.Atom {
   var dslTreeAtom: DSLTree.Atom {
     if let kind = dslAssertionKind {
       return .assertion(kind)
+    }
+    
+    if let cc = dslCharacterClass {
+      return .characterClass(cc)
     }
 
     switch self.kind {
@@ -249,9 +278,11 @@ extension AST.Atom {
     case let .backreference(r):           return .backreference(.init(ast: r))
     case let .changeMatchingOptions(seq): return .changeMatchingOptions(.init(ast: seq))
 
-    case .escaped(let c) where c.scalarValue != nil:
-      return .scalar(c.scalarValue!)
-
+    case .escaped(let c):
+      guard let val = c.scalarValue else {
+        fatalError("Got a .escaped that was not an assertion, character class, or scalar value \(self)")
+      }
+      return .scalar(val)
     default: return .unconverted(.init(ast: self))
     }
   }
