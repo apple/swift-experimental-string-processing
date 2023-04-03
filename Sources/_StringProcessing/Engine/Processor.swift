@@ -35,7 +35,7 @@ struct Processor {
   /// of the search. `input` can be a "supersequence" of the subject, while
   /// `input[subjectBounds]` is the logical entity that is being searched.
   let input: Input
-  
+
   /// The bounds of the logical subject in `input`.
   ///
   /// `subjectBounds` represents the bounds of the string or substring that a
@@ -46,7 +46,7 @@ struct Processor {
   /// `subjectBounds` is always equal to or a subrange of
   /// `input.startIndex..<input.endIndex`.
   let subjectBounds: Range<Position>
-  
+
   /// The bounds within the subject for an individual search.
   ///
   /// `searchBounds` is equal to `subjectBounds` in some cases, but can be a
@@ -62,7 +62,7 @@ struct Processor {
   let instructions: InstructionList<Instruction>
 
   // MARK: Resettable state
-  
+
   /// The current search position while processing.
   ///
   /// `currentPosition` must always be in the range `subjectBounds` or equal
@@ -81,16 +81,15 @@ struct Processor {
 
   var wordIndexCache: Set<String.Index>? = nil
   var wordIndexMaxIndex: String.Index? = nil
-  
+
   var state: State = .inProgress
 
   var failureReason: Error? = nil
 
-  // MARK: Metrics, debugging, etc.
-  var cycleCount = 0
-  var isTracingEnabled: Bool
-  let shouldMeasureMetrics: Bool
-  var metrics: ProcessorMetrics = ProcessorMetrics()
+  var metrics: ProcessorMetrics
+
+  /// Set if the string has fast contiguous UTF-8 available
+  let fastUTF8: UnsafeRawPointer?
 }
 
 extension Processor {
@@ -116,14 +115,20 @@ extension Processor {
     self.subjectBounds = subjectBounds
     self.searchBounds = searchBounds
     self.matchMode = matchMode
-    self.isTracingEnabled = isTracingEnabled
-    self.shouldMeasureMetrics = shouldMeasureMetrics
+
+    self.metrics = ProcessorMetrics(
+      isTracingEnabled: isTracingEnabled,
+      shouldMeasureMetrics: shouldMeasureMetrics)
+
     self.currentPosition = searchBounds.lowerBound
 
     // Initialize registers with end of search bounds
     self.registers = Registers(program, searchBounds.upperBound)
     self.storedCaptures = Array(
        repeating: .init(), count: program.registerInfo.captures)
+
+    // print(MemoryLayout<Processor>.size)
+    self.fastUTF8 = input._unsafeFastUTF8?.baseAddress
 
     _checkInvariants()
   }
@@ -144,8 +149,8 @@ extension Processor {
 
     self.state = .inProgress
     self.failureReason = nil
-    
-    if shouldMeasureMetrics { metrics.resets += 1 }
+
+    metrics.addReset()
     _checkInvariants()
   }
 
@@ -156,6 +161,16 @@ extension Processor {
     assert(subjectBounds.upperBound <= input.endIndex)
     assert(currentPosition >= searchBounds.lowerBound)
     assert(currentPosition <= searchBounds.upperBound)
+
+    assert({
+      guard let utf8 = self.fastUTF8 else { return true }
+      var copy = input
+      return copy.withUTF8 {
+        let base = UnsafeRawPointer($0.baseAddress!)
+        return utf8 == base
+      }
+    }())
+
   }
 }
 
@@ -186,7 +201,7 @@ extension Processor {
     currentPosition = idx
     return true
   }
-  
+
   // Advances in unicode scalar view
   mutating func consumeScalar(_ n: Distance) -> Bool {
     guard let idx = input.unicodeScalars.index(
@@ -265,11 +280,41 @@ extension Processor {
     return true
   }
 
+  @inline(never)
+  @_effects(releasenone)
   func loadScalar() -> Unicode.Scalar? {
-    currentPosition < end ? input.unicodeScalars[currentPosition] : nil
+    guard currentPosition < end else { return nil }
+//    if let utf8 = self.fastUTF8 {
+//      let firstByte = utf8[currentPosition.encodedOffset]
+//      if firstByte < 0x80 {
+//        let returnValue = Unicode.Scalar(firstByte)
+//        // TODO: More comprehensive assertion framework to test before and after
+//        // TODO: unsafe-ish optimizations
+//        assert(returnValue == input.unicodeScalars[currentPosition])
+//
+//        return returnValue
+//      }
+//
+//    }
+    return input.unicodeScalars[currentPosition]
   }
-  
+
   func _doMatchScalar(_ s: Unicode.Scalar, _ boundaryCheck: Bool) -> Input.Index? {
+    guard currentPosition < end else { return nil }
+
+   if s.isASCII, let utf8 = self.fastUTF8 {
+     let nextByteIdx = input.utf8.index(after: currentPosition)
+     if utf8.loadByte(currentPosition) == s.value {
+       // TODO: comprehensive assertion framework
+       assert(s == input.unicodeScalars[currentPosition])
+       if (!boundaryCheck || input.isOnGraphemeClusterBoundary(nextByteIdx)) {
+         return nextByteIdx
+       }
+     }
+     return nil
+   } // 13-22ms, after: 22-25ms ???
+    // Now down to 3ms
+
     if s == loadScalar(),
        let idx = input.unicodeScalars.index(
         currentPosition,
@@ -281,7 +326,7 @@ extension Processor {
       return nil
     }
   }
-  
+
   mutating func matchScalar(_ s: Unicode.Scalar, boundaryCheck: Bool) -> Bool {
     guard let next = _doMatchScalar(s, boundaryCheck) else {
       signalFailure()
@@ -355,7 +400,7 @@ extension Processor {
     _uncheckedForcedConsumeOne()
     return true
   }
-  
+
   // Matches the next scalar if it is not a newline
   mutating func matchAnyNonNewlineScalar() -> Bool {
     guard let s = loadScalar(), !s.isNewline else {
@@ -401,8 +446,8 @@ extension Processor {
     storedCaptures = capEnds
     registers.ints = intRegisters
     registers.positions = posRegisters
-    
-    if shouldMeasureMetrics { metrics.backtracks += 1 }
+
+    metrics.addBacktrack()
   }
 
   mutating func abort(_ e: Error? = nil) {
@@ -436,23 +481,13 @@ extension Processor {
     // TODO: What should we do here?
     fatalError("Invalid code: Tried to clear save points when empty")
   }
-  
+
   mutating func cycle() {
     _checkInvariants()
     assert(state == .inProgress)
 
-#if PROCESSOR_MEASUREMENTS_ENABLED
-    if cycleCount == 0 {
-      trace()
-      measureMetrics()
-    }
-    defer {
-      cycleCount += 1
-      trace()
-      measureMetrics()
-      _checkInvariants()
-    }
-#endif
+    startCycleMetrics()
+    defer { endCycleMetrics() }
 
     let (opcode, payload) = fetch().destructure
     switch opcode {

@@ -13,7 +13,7 @@
 // TODO: Place shared formatting and trace infrastructure here
 
 protocol Traced {
-  var isTracingEnabled: Bool { get set }
+  var isTracingEnabled: Bool { get }
 }
 
 protocol TracedProcessor: ProcessorProtocol, Traced {

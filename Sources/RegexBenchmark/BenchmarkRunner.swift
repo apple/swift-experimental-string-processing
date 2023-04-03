@@ -1,6 +1,9 @@
 import Foundation
 @_spi(RegexBenchmark) import _StringProcessing
 
+/// The number of times to re-run the benchmark if results are too variang
+private var rerunCount: Int { 3 }
+
 struct BenchmarkRunner {
   let suiteName: String
   var suite: [any RegexBenchmark] = []
@@ -82,11 +85,16 @@ struct BenchmarkRunner {
     for b in suite {
       var result = measure(benchmark: b, samples: samples)
       if result.runtimeIsTooVariant {
-        print("Warning: Standard deviation > \(Stats.maxAllowedStdev*100)% for \(b.name)")
-        print(result.runtime)
-        print("Rerunning \(b.name)")
-        result = measure(benchmark: b, samples: result.runtime.samples*2)
-        print(result.runtime)
+        for _ in 0..<rerunCount {
+          print("Warning: Standard deviation > \(Stats.maxAllowedStdev*100)% for \(b.name)")
+          print(result.runtime)
+          print("Rerunning \(b.name)")
+          result = measure(benchmark: b, samples: result.runtime.samples)
+          print(result.runtime)
+          if !result.runtimeIsTooVariant {
+            break
+          }
+        }
         if result.runtimeIsTooVariant {
           fatalError("Benchmark \(b.name) is too variant")
         }

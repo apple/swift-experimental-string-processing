@@ -34,13 +34,21 @@ extension Processor {
     _ isStrictASCII: Bool,
     _ isScalarSemantics: Bool
   ) -> Input.Index? {
+
+    // ASCII fast-path
+    if let (next, result) = input._quickMatch(
+      cc, at: currentPosition, isScalarSemantics: isScalarSemantics
+    ) {
+      return result == isInverted ? nil : next
+    }
+
     guard let char = load(), let scalar = loadScalar() else {
       return nil
     }
 
-    let asciiCheck = (char.isASCII && !isScalarSemantics)
+    let asciiCheck = !isStrictASCII
       || (scalar.isASCII && isScalarSemantics)
-      || !isStrictASCII
+      || char.isASCII
 
     var matched: Bool
     var next: Input.Index

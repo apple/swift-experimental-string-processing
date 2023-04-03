@@ -78,12 +78,22 @@ struct _CharacterClassModel: Hashable {
     guard currentPosition != input.endIndex else {
       return nil
     }
+
+    let isScalarSemantics = matchLevel == .unicodeScalar
+
+    // ASCII fast-path
+    if let (next, result) = input._quickMatch(
+      cc, at: currentPosition, isScalarSemantics: isScalarSemantics
+    ) {
+      return result == isInverted ? nil : next
+    }
+
     let char = input[currentPosition]
     let scalar = input.unicodeScalars[currentPosition]
-    let isScalarSemantics = matchLevel == .unicodeScalar
-    let asciiCheck = (char.isASCII && !isScalarSemantics)
+
+    let asciiCheck = !isStrictASCII
       || (scalar.isASCII && isScalarSemantics)
-      || !isStrictASCII
+      || char.isASCII
     
     var matched: Bool
     var next: String.Index

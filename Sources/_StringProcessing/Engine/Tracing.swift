@@ -9,7 +9,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+// TODO: Remove this protocol (and/or reuse it for something like a FastProcessor)
 extension Processor: TracedProcessor {
+  var cycleCount: Int { metrics.cycleCount }
+  var isTracingEnabled: Bool { metrics.isTracingEnabled }
+
   var isFailState: Bool { state == .fail }
   var isAcceptState: Bool { state == .accept }
 
