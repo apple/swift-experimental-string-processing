@@ -310,10 +310,13 @@ fileprivate extension Compiler.ByteCodeGen {
     let intercept = builder.makeAddress()
     let success = builder.makeAddress()
 
-    builder.buildSave(success)
-    builder.buildSave(intercept)
+    // Positive lookaheads propagate captures through the success SP
+    builder.buildSave(success, keepsCaptures: true)
+    // Negative lookaheads should not propagate captures, so the intercept SP
+    // does not keep captures
+    let id = builder.buildSaveWithID(intercept, keepsCaptures: false)
     try emitNode(child)
-    builder.buildClearThrough(intercept)
+    builder.buildClearThrough(id)
     if !positive {
       builder.buildClear()
     }
@@ -347,10 +350,10 @@ fileprivate extension Compiler.ByteCodeGen {
     let intercept = builder.makeAddress()
     let success = builder.makeAddress()
 
-    builder.buildSaveAddress(success)
-    builder.buildSave(intercept)
+    builder.buildSaveAddress(success, keepsCaptures: true)
+    let id = builder.buildSaveWithID(intercept)
     try emitNode(child)
-    builder.buildClearThrough(intercept)
+    builder.buildClearThrough(id)
     builder.buildFail()
 
     builder.label(intercept)
@@ -569,8 +572,9 @@ fileprivate extension Compiler.ByteCodeGen {
     }
 
     // Set up a dummy save point for possessive to update
+    var dummyID: SavePointID? = nil
     if updatedKind == .possessive {
-      builder.pushEmptySavePoint()
+      dummyID = builder.pushEmptySavePoint()
     }
 
     // min-trip-count:
@@ -620,13 +624,16 @@ fileprivate extension Compiler.ByteCodeGen {
     }
 
     // exit-policy:
+    //   <possessive: clearSavePoint>
     //   condBranch(to: exit, ifZeroElseDecrement: %extraTrips)
     //   <eager: split(to: loop, saving: exit)>
     //   <possesive:
-    //     clearSavePoint
     //     split(to: loop, saving: exit)>
     //   <reluctant: save(restoringAt: loop)
     builder.label(exitPolicy)
+    if updatedKind == .possessive {
+      builder.buildClear(possessiveQuantDummy: dummyID!)
+    }
     switch extraTrips {
     case nil: break
     case 0:   builder.buildBranch(to: exit)
@@ -640,8 +647,7 @@ fileprivate extension Compiler.ByteCodeGen {
     case .eager:
       builder.buildSplit(to: loopBody, saving: exit)
     case .possessive:
-      builder.buildClear()
-      builder.buildSplit(to: loopBody, saving: exit)
+      builder.buildSplit(to: loopBody, saving: exit, id: dummyID!)
     case .reluctant:
       builder.buildSave(loopBody)
       // FIXME: Is this re-entrant? That is would nested

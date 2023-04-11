@@ -110,6 +110,8 @@ enum _PositionStackAddress {}
 typealias SavePointStackAddress = TypedInt<_SavePointAddress>
 enum _SavePointAddress {}
 
+typealias SavePointID = TypedInt<_SavePointID>
+enum _SavePointID {}
 
 // MARK: - Registers
 

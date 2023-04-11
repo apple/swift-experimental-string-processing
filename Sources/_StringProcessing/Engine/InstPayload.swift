@@ -261,6 +261,12 @@ extension Instruction.Payload {
   var capture: CaptureRegister {
     interpret()
   }
+  init(saveID: SavePointID) {
+    self.init(saveID)
+  }
+  var saveID: SavePointID {
+    interpret()
+  }
 
   // MARK: Packed operand payloads
 
@@ -348,6 +354,17 @@ extension Instruction.Payload {
   }
 
   // MARK: Struct payloads
+  init(
+    save: InstructionAddress,
+    id: SavePointID?,
+    splitTo: InstructionAddress? = nil,
+    keepsCaptures: Bool
+  ) {
+    self.init(SavePayload(address: save, id: id, splitTo: splitTo, keepsCaptures: keepsCaptures).rawValue)
+  }
+  var savePayload: SavePayload {
+    SavePayload.init(rawValue: rawValue & _payloadMask)
+  }
 
   init(_ model: _CharacterClassModel) {
     self.init(CharacterClassPayload(model).rawValue)
@@ -611,5 +628,59 @@ struct AssertionPayload: RawRepresentable {
     } else {
       return .graphemeCluster
     }
+  }
+}
+
+struct SavePayload: RawRepresentable {
+  let rawValue: UInt64
+
+  init(rawValue: UInt64) {
+    self.rawValue = rawValue
+    assert(rawValue & _opcodeMask == 0)
+  }
+  
+  init(
+    address: InstructionAddress,
+    id: SavePointID?,
+    splitTo: InstructionAddress?,
+    keepsCaptures: Bool
+  ) {
+    let idVal: UInt64
+    if let id = id {
+      idVal = UInt64(id.rawValue) << 9
+    } else {
+      idVal = 1 << 8
+    }
+    let splitVal: UInt64
+    if let splitAddr = splitTo {
+      splitVal = UInt64(splitAddr.rawValue) << 19
+    } else {
+      splitVal = 1 << 18
+    }
+    let keepsCapturesVal: UInt64 = keepsCaptures ? 1 << 30 : 0
+    assert(UInt64(address.rawValue) & idVal & splitVal & keepsCapturesVal == 0)
+    self.rawValue = UInt64(address.rawValue) + idVal + splitVal + keepsCapturesVal
+    }
+
+  var addr: InstructionAddress {
+    TypedInt(self.rawValue & 0xFF)
+  }
+
+  var hasID: Bool {
+    self.rawValue & (1 << 8) == 0
+  }
+  var id: SavePointID {
+    TypedInt((self.rawValue >> 9) & 0xFF)
+  }
+  
+  var hasSplit: Bool {
+    self.rawValue & (1 << 18) == 0
+  }
+  var split: InstructionAddress {
+    TypedInt((self.rawValue >> 19) & 0xFF)
+  }
+  
+  var keepsCaptures: Bool {
+    self.rawValue & (1 << 30) != 0
   }
 }

@@ -51,6 +51,8 @@ extension MEProgram {
       // We currently deduce the capture count from the capture register number.
       nextCaptureRegister.rawValue
     }
+    
+    var nextSavePointID: SavePointID = 0
 
     init() {}
   }
@@ -60,11 +62,28 @@ extension MEProgram.Builder {
   struct AddressFixup {
     var first: AddressToken
     var second: AddressToken? = nil
+    var id: SavePointID?
+    var keepsCaptures: Bool
 
-    init(_ a: AddressToken) { self.first = a }
-    init(_ a: AddressToken, _ b: AddressToken) {
+    init(
+      _ a: AddressToken,
+      id: SavePointID?,
+      keepsCaptures: Bool
+    ) {
+      self.first = a
+      self.id = id
+      self.keepsCaptures = keepsCaptures
+    }
+    init(
+      _ a: AddressToken,
+      _ b: AddressToken,
+      id: SavePointID?,
+      keepsCaptures: Bool
+    ) {
       self.first = a
       self.second = b
+      self.id = id
+      self.keepsCaptures = keepsCaptures
     }
   }
 }
@@ -117,27 +136,42 @@ extension MEProgram.Builder {
     fixup(to: t)
   }
 
-  mutating func buildSave(_ t: AddressToken) {
+  mutating func buildSave(_ t: AddressToken, keepsCaptures: Bool = false) {
     instructions.append(.init(.save))
-    fixup(to: t)
+    fixup(to: t, keepsCaptures: keepsCaptures)
   }
-  mutating func buildSaveAddress(_ t: AddressToken) {
+  mutating func buildSaveAddress(_ t: AddressToken, keepsCaptures: Bool = false) {
     instructions.append(.init(.saveAddress))
-    fixup(to: t)
+    fixup(to: t, keepsCaptures: keepsCaptures)
+  }
+  
+  mutating func buildSaveWithID(_ t: AddressToken, keepsCaptures: Bool = false) -> SavePointID {
+    let id = makeSavePointID()
+    instructions.append(.init(.save))
+    fixup(to: t, id: id, keepsCaptures: keepsCaptures)
+    return id
+  }
+  mutating func buildSaveAddressWithID(_ t: AddressToken) -> SavePointID {
+    let id = makeSavePointID()
+    instructions.append(.init(.saveAddress))
+    fixup(to: t, id: id)
+    return id
   }
   mutating func buildSplit(
-    to: AddressToken, saving: AddressToken
+    to: AddressToken, saving: AddressToken, id: SavePointID? = nil
   ) {
     instructions.append(.init(.splitSaving))
-    fixup(to: (to, saving))
+    fixup(to: (to, saving), id: id)
   }
 
   mutating func buildClear() {
     instructions.append(.init(.clear))
   }
-  mutating func buildClearThrough(_ t: AddressToken) {
-    instructions.append(.init(.clearThrough))
-    fixup(to: t)
+  mutating func buildClear(possessiveQuantDummy id: SavePointID) {
+    instructions.append(.init(.clearPossessiveQuantDummy, .init(saveID: id)))
+  }
+  mutating func buildClearThrough(_ id: SavePointID) {
+    instructions.append(.init(.clearThrough, .init(saveID: id)))
   }
   mutating func buildFail() {
     instructions.append(.init(.fail))
@@ -357,15 +391,16 @@ extension MEProgram.Builder {
         payload = .init(addr: addr, int: inst.payload.int)
       case .condBranchSamePosition:
         payload = .init(addr: addr, position: inst.payload.position)
-      case .branch, .save, .saveAddress, .clearThrough:
+      case .branch:
         payload = .init(addr: addr)
-
+      case .save, .saveAddress:
+        payload = .init(save: addr, id: tok.id, keepsCaptures: tok.keepsCaptures)
       case .splitSaving:
         guard let fix2 = tok.second else {
           throw Unreachable("TODO: reason")
         }
         let saving = addressTokens[fix2.rawValue]!
-        payload = .init(addr: addr, addr2: saving)
+        payload = .init(save: saving, id: tok.id, splitTo: addr, keepsCaptures: tok.keepsCaptures)
 
       default: throw Unreachable("TODO: reason")
 
@@ -435,22 +470,28 @@ extension MEProgram.Builder {
   // Associate the most recently added instruction with
   // the provided token, ensuring it is fixed up during
   // assembly
-  mutating func fixup(to t: AddressToken) {
+  mutating func fixup(
+    to t: AddressToken,
+    id: SavePointID? = nil,
+    keepsCaptures: Bool = false
+  ) {
     assert(!instructions.isEmpty)
     addressFixups.append(
-      (InstructionAddress(instructions.endIndex-1), .init(t)))
+      (InstructionAddress(instructions.endIndex-1), .init(t, id: id, keepsCaptures: keepsCaptures)))
   }
 
   // Associate the most recently added instruction with
   // the provided tokens, ensuring it is fixed up during
   // assembly
   mutating func fixup(
-    to ts: (AddressToken, AddressToken)
+    to ts: (AddressToken, AddressToken),
+    id: SavePointID? = nil,
+    keepsCaptures: Bool = false
   ) {
     assert(!instructions.isEmpty)
     addressFixups.append((
       InstructionAddress(instructions.endIndex-1),
-      .init(ts.0, ts.1)))
+      .init(ts.0, ts.1, id: id, keepsCaptures: keepsCaptures)))
   }
 
   // Push an "empty" save point which will, upon restore, just restore from
@@ -459,11 +500,11 @@ extension MEProgram.Builder {
   //
   // This is useful for possessive quantification that needs some initial save
   // point to "ratchet" upon a successful match.
-  mutating func pushEmptySavePoint() {
+  mutating func pushEmptySavePoint() -> SavePointID {
     if failAddressToken == nil {
       failAddressToken = makeAddress()
     }
-    buildSaveAddress(failAddressToken!)
+    return buildSaveAddressWithID(failAddressToken!)
   }
 
 }
@@ -527,6 +568,10 @@ extension MEProgram.Builder {
     let r = nextPositionRegister
     defer { nextPositionRegister.rawValue += 1 }
     return r
+  }
+  mutating func makeSavePointID() -> SavePointID {
+    defer { nextSavePointID.rawValue += 1 }
+    return nextSavePointID
   }
 
   // TODO: A register-mapping helper struct, which could release

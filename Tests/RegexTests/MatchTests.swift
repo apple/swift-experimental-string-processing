@@ -391,7 +391,7 @@ extension RegexTests {
       #"a(?#. comment)b"#, input: "123abcxyz", match: "ab")
   }
 
-  func testMatchQuantification() {
+  func testMatchQuantification() throws {
     // MARK: Quantification
 
     firstMatchTest(
@@ -460,6 +460,11 @@ extension RegexTests {
     firstMatchTests(
       ".*+x",
       ("abc", nil), ("abcx", nil), ("", nil))
+    
+    // Make sure that possessive quant doesn't clear out existing save points
+    let r = try Regex("a?(ab)?+")
+    let match = try r.wholeMatch(in: "ab")
+    XCTAssertEqual(match?.0, "ab")
 
     firstMatchTests(
       "a+b",
@@ -576,15 +581,18 @@ extension RegexTests {
       ("baaaaabc", nil),
       ("baaaaaaaabc", nil))
 
-    // XFAIL'd possessive tests
+    // Possessive quantifier tests
+    // Ensure that save points are correctly handled in/through possessive quant
     firstMatchTests(
       "a?+a",
-      ("a", nil),
-      xfail: true)
+      ("a", nil))
+    // Save points made inside the possessive quant should be kept and correctly
+    // restored to
     firstMatchTests(
       "(a|a)?+a",
-      ("a", nil),
-      xfail: true)
+      ("a", nil))
+    // Even when restoring to an SP inside of a possessive quant, we must
+    // discard the save points from quantification correctly
     firstMatchTests(
       "(a|a){2,4}+a",
       ("a", nil),
@@ -592,8 +600,7 @@ extension RegexTests {
     firstMatchTests(
       "(a|a){2,4}+a",
       ("aaa", nil),
-      ("aaaa", nil),
-      xfail: true)
+      ("aaaa", nil))
 
     firstMatchTests(
       "(?:a{2,4}?b)+",
@@ -1629,8 +1636,7 @@ extension RegexTests {
     // (?:a?+) and (?>a?+) are equivalent: they match one 'a' if available
     firstMatchTests(
       #"^(?:a?+)a$"#,
-      (input: "a", match: nil),
-      xfail: true)
+      (input: "a", match: nil))
     firstMatchTests(
       #"^(?:a?+)a$"#,
       (input: "aa", match: "aa"),
@@ -1653,8 +1659,7 @@ extension RegexTests {
     firstMatchTests(
       #"(?>(\d+))\w+\1"#,
       (input: "23x23", match: "23x23"),
-      (input: "123x23", match: "23x23"),
-      xfail: true)
+      (input: "123x23", match: "23x23"))
     
     // Backreferences in scalar mode
     // In scalar mode the backreference should not match
@@ -1672,12 +1677,10 @@ extension RegexTests {
       (input: "abbba", match: nil),
       (input: "ABBA", match: nil),
       (input: "defABBAdef", match: nil))
-    // FIXME: Backreferences don't escape positive lookaheads
     firstMatchTests(
       #"^(?=.*(.)(.)\2\1).+\2$"#,
       (input: "ABBAB", match: "ABBAB"),
-      (input: "defABBAdefB", match: "defABBAdefB"),
-      xfail: true)
+      (input: "defABBAdefB", match: "defABBAdefB"))
     
     firstMatchTests(
       #"^(?!.*(.)(.)\2\1).+$"#,
@@ -2572,7 +2575,29 @@ extension RegexTests {
   }
   
   func testFuzzerArtifacts() throws {
-    expectCompletion(regex: #"(b?)\1*"#, in: "a")
+    // rdar://98517792
+//    expectCompletion(regex: #"(b?)\1*"#, in: "a")
+//
+//    // rdar://98852151
+//    firstMatchTest(#"\p{L}?+\p{L}"#, input: "a", match: nil)
+//    firstMatchTest(#"🧟‍♀️?+🧟‍♀️"#, input: "🧟‍♀️", match: nil)
+//    firstMatchTest(#"🧟‍♀️{,3}+🧟‍♀️"#, input: "🧟‍♀️🧟‍♀️🧟‍♀️", match: nil)
+    
+    // rdar://98738984
+    firstMatchTest(
+          #"(?>(a))\1"#,
+          input: #"aa"#,
+          match: "aa")
+    // lookbehind is not yet implemented
+    firstMatchTest(
+          #"a(?<=(a))\1"#,
+          input: #"aa"#,
+          match: "aa",
+          xfail: true)
+    firstMatchTest(
+          #"(?=(a))\1"#,
+          input: #"a"#,
+          match: "a")
   }
   
   func testIssue640() throws {

@@ -183,6 +183,9 @@ extension Instruction {
     ///
     /// Precondition: There is a save point to remove
     case clear
+    
+    /// Remove the save point with the given id
+    case clearPossessiveQuantDummy
 
     /// Remove save points up to and including the operand
     ///

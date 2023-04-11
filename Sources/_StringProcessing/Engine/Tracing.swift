@@ -89,15 +89,21 @@ extension Instruction: CustomStringConvertible {
     case .quantify:
       let payload = payload.quantify
       return "\(opcode) \(payload.type) \(payload.minTrips) \(payload.extraTrips?.description ?? "unbounded" )"
-    case .save:
+    case .save, .saveAddress:
+      let payload = payload.savePayload
       let resumeAddr = payload.addr
-      return "\(opcode) \(resumeAddr)"
-    case .saveAddress:
-      let resumeAddr = payload.addr
-      return "\(opcode) \(resumeAddr)"
+      if payload.hasID {
+        return "\(opcode) \(resumeAddr) keepsCaptures? \(payload.keepsCaptures) id: \(payload.id)"
+      }
+      return "\(opcode) \(resumeAddr) keepsCaptures? \(payload.keepsCaptures)"
     case .splitSaving:
-      let (nextPC, resumeAddr) = payload.pairedAddrAddr
-      return "\(opcode) saving: \(resumeAddr) jumpingTo: \(nextPC)"
+      let payload = payload.savePayload
+      if payload.hasID {
+        return "\(opcode) saving: \(payload.addr) (id: \(payload.id)) jumpingTo: \(payload.split)"
+      }
+      return "\(opcode) saving: \(payload.addr) jumpingTo: \(payload.split)"
+    case .clearPossessiveQuantDummy:
+      return "\(opcode) clearingIfLatestSavePointID == \(payload.saveID)"
     case .transformCapture:
       let (cap, trans) = payload.pairedCaptureTransform
       return "\(opcode) trans[\(trans)](\(cap))"
@@ -121,8 +127,14 @@ extension Processor.SavePoint {
         posStr = "\(startStr)...\(endStr)"
       }
     }
+    let idStr: String
+    if let id = self.id {
+      idStr = ", id: \(id)"
+    } else {
+      idStr = ""
+    }
     return """
-      pc: \(self.pc), pos: \(posStr), stackEnd: \(stackEnd)
+      pc: \(self.pc), pos: \(posStr), stackEnd: \(stackEnd), keepsCaptures? \(self.captureEnds == nil)\(idStr)
       """
   }
 }

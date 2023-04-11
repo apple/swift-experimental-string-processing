@@ -27,6 +27,7 @@ enum DecodedInstr {
   case splitSaving
   case clear
   case clearThrough
+  case clearReluctantQuantDummy
   case accept
   case fail
   case advance
@@ -81,6 +82,8 @@ extension DecodedInstr {
       return .clear
     case .clearThrough:
       return .clearThrough
+    case .clearReluctantQuantDummy:
+      return .clearReluctantQuantDummy
     case .accept:
       return .accept
     case .fail:

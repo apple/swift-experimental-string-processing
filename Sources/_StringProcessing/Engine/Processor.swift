@@ -117,6 +117,7 @@ extension Processor {
     self.searchBounds = searchBounds
     self.matchMode = matchMode
     self.isTracingEnabled = isTracingEnabled
+    // self.isTracingEnabled = true
     self.shouldMeasureMetrics = shouldMeasureMetrics
     self.currentPosition = searchBounds.lowerBound
 
@@ -370,7 +371,7 @@ extension Processor {
       pc: InstructionAddress,
       pos: Position?,
       stackEnd: CallStackAddress,
-      captureEnds: [_StoredCapture],
+      captureEnds: [_StoredCapture]?,
       intRegisters: [Int],
       PositionRegister: [Input.Index]
     )
@@ -388,14 +389,16 @@ extension Processor {
     }
 
     assert(stackEnd.rawValue <= callStack.count)
-    assert(capEnds.count == storedCaptures.count)
 
     controller.pc = pc
     currentPosition = pos ?? currentPosition
     callStack.removeLast(callStack.count - stackEnd.rawValue)
-    storedCaptures = capEnds
     registers.ints = intRegisters
     registers.positions = posRegisters
+    if let capEnds = capEnds {
+      assert(capEnds.count == storedCaptures.count)
+      storedCaptures = capEnds
+    }
     
     if shouldMeasureMetrics { metrics.backtracks += 1 }
   }
@@ -421,9 +424,9 @@ extension Processor {
     }
   }
 
-  mutating func clearThrough(_ address: InstructionAddress) {
+  mutating func clearThrough(_ idToClear: SavePointID) {
     while let sp = savePoints.popLast() {
-      if sp.pc == address {
+      if let id = sp.id, id == idToClear {
         controller.step()
         return
       }
@@ -436,7 +439,7 @@ extension Processor {
     _checkInvariants()
     assert(state == .inProgress)
 
-#if PROCESSOR_MEASUREMENTS_ENABLED
+// #if PROCESSOR_MEASUREMENTS_ENABLED
     if cycleCount == 0 {
       trace()
       measureMetrics()
@@ -447,7 +450,7 @@ extension Processor {
       measureMetrics()
       _checkInvariants()
     }
-#endif
+// #endif
 
     let (opcode, payload) = fetch().destructure
     switch opcode {
@@ -484,22 +487,40 @@ extension Processor {
         controller.step()
       }
     case .save:
+      // lily fixme: merge the three cases of save together
+      let payload = payload.savePayload
       let resumeAddr = payload.addr
-      let sp = makeSavePoint(resumeAddr)
+      let sp: SavePoint
+      if payload.hasID {
+        sp = makeSavePoint(resumeAddr, withID: payload.id, keepCaptures: payload.keepsCaptures)
+      } else {
+        sp = makeSavePoint(resumeAddr, keepCaptures: payload.keepsCaptures)
+      }
       savePoints.append(sp)
       controller.step()
 
     case .saveAddress:
+      let payload = payload.savePayload
       let resumeAddr = payload.addr
-      let sp = makeSavePoint(resumeAddr, addressOnly: true)
+      let sp: SavePoint
+      if payload.hasID {
+        sp = makeSavePoint(resumeAddr, addressOnly: true, withID: payload.id, keepCaptures: payload.keepsCaptures)
+      } else {
+        sp = makeSavePoint(resumeAddr, addressOnly: true, keepCaptures: payload.keepsCaptures)
+      }
       savePoints.append(sp)
       controller.step()
 
     case .splitSaving:
-      let (nextPC, resumeAddr) = payload.pairedAddrAddr
-      let sp = makeSavePoint(resumeAddr)
+      let payload = payload.savePayload
+      let sp: SavePoint
+      if payload.hasID {
+        sp = makeSavePoint(payload.addr, withID: payload.id, keepCaptures: payload.keepsCaptures)
+      } else {
+        sp = makeSavePoint(payload.addr, keepCaptures: payload.keepsCaptures)
+      }
       savePoints.append(sp)
-      controller.pc = nextPC
+      controller.pc = payload.split
 
     case .clear:
       if let _ = savePoints.popLast() {
@@ -510,8 +531,23 @@ extension Processor {
       }
 
     case .clearThrough:
-      clearThrough(payload.addr)
-
+      clearThrough(payload.saveID)
+      
+    case .clearPossessiveQuantDummy:
+      let idToClear = payload.saveID
+      if let latest = savePoints.last, let id = latest.id, id == idToClear {
+        // If we have save points within the posessive quantifier, we can't clear
+        // the dummy save point just yet
+        
+        // The last time we exit the possessive quantifier, the last one will
+        // be the dummy with the correct id, and only then do we clear it
+        
+        // Since we only leave the dummy SP if there are save points below it,
+        // and those save points below it must restore into the reluctant quantifier (lily note: check this)
+        // we will eventually clear the dummy in this instruction
+        savePoints.removeLast()
+      }
+      controller.step()
     case .accept:
       tryAccept()
 

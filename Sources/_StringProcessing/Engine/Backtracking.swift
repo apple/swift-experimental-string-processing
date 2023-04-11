@@ -11,6 +11,7 @@
 
 extension Processor {
   struct SavePoint {
+    var id: SavePointID?
     var pc: InstructionAddress
     var pos: Position?
     // Quantifiers may store a range of positions to restore to
@@ -25,7 +26,7 @@ extension Processor {
 
     // FIXME: Save minimal info (e.g. stack position and
     // perhaps current start)
-    var captureEnds: [_StoredCapture]
+    var captureEnds: [_StoredCapture]?
 
     // The int registers store values that can be relevant to
     // backtracking, such as the number of trips in a quantification.
@@ -37,7 +38,7 @@ extension Processor {
       pc: InstructionAddress,
       pos: Position?,
       stackEnd: CallStackAddress,
-      captureEnds: [_StoredCapture],
+      captureEnds: [_StoredCapture]?,
       intRegisters: [Int],
       PositionRegister: [Input.Index]
     ) {
@@ -75,15 +76,18 @@ extension Processor {
 
   func makeSavePoint(
     _ pc: InstructionAddress,
-    addressOnly: Bool = false
+    addressOnly: Bool = false,
+    withID id: SavePointID? = nil,
+    keepCaptures: Bool = false
   ) -> SavePoint {
     SavePoint(
+      id: id,
       pc: pc,
       pos: addressOnly ? nil : currentPosition,
       rangeStart: nil,
       rangeEnd: nil,
       stackEnd: .init(callStack.count),
-      captureEnds: storedCaptures,
+      captureEnds: keepCaptures ? nil : storedCaptures,
       intRegisters: registers.ints,
       posRegisters: registers.positions)
   }
@@ -91,6 +95,7 @@ extension Processor {
   func startQuantifierSavePoint() -> SavePoint {
     // Restores to the instruction AFTER the current quantifier instruction
     SavePoint(
+      id: nil,
       pc: controller.pc + 1,
       pos: nil,
       rangeStart: nil,
