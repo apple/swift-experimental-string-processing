@@ -12,6 +12,7 @@
 @_spi(_Unicode)
 import Swift
 
+// TODO: Sink onto String
 extension Processor {
   func atSimpleBoundary(
     _ usesAsciiWord: Bool,
@@ -20,9 +21,11 @@ extension Processor {
     func matchesWord(at i: Input.Index) -> Bool {
       switch semanticLevel {
       case .graphemeCluster:
+        // TODO: needs benchmark coverage
         let c = input[i]
         return c.isWordCharacter && (c.isASCII || !usesAsciiWord)
       case .unicodeScalar:
+        // TODO: needs benchmark coverage
         let c = input.unicodeScalars[i]
         return (c.properties.isAlphabetic || c == "_") && (c.isASCII || !usesAsciiWord)
       }
@@ -51,6 +54,7 @@ extension String {
     using cache: inout Set<String.Index>?,
     _ maxIndex: inout String.Index?
   ) -> Bool {
+    // TODO: needs benchmark coverage
     guard i != startIndex, i != endIndex else {
       return true
     }

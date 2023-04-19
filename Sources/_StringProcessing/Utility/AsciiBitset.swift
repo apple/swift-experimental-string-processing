@@ -57,7 +57,7 @@ extension DSLTree.CustomCharacterClass {
       }
     }
 
-    internal func matches(char: Character) -> Bool {
+    internal func matches(_ char: Character) -> Bool {
       let matched: Bool
       if let val = char._singleScalarAsciiValue {
         matched = matches(val)
@@ -71,7 +71,7 @@ extension DSLTree.CustomCharacterClass {
       return matched
     }
 
-    internal func matches(scalar: Unicode.Scalar) -> Bool {
+    internal func matches(_ scalar: Unicode.Scalar) -> Bool {
       let matched: Bool
       if scalar.isASCII {
         let val = UInt8(ascii: scalar)

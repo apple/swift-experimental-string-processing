@@ -50,11 +50,8 @@ extension BidirectionalCollection where Element: Comparable {
   public func firstRange<C: Collection>(
     of other: C
   ) -> Range<Index>? where C.Element == Element {
-    let searcher = PatternOrEmpty(
-      searcher: TwoWaySearcher<SubSequence>(pattern: Array(other)))
-    let slice = self[...]
-    var state = searcher.state(for: slice, in: startIndex..<endIndex)
-    return searcher.search(slice, &state)
+    let searcher = ZSearcher<SubSequence>(pattern: Array(other), by: ==)
+    return searcher.search(self[...], in: startIndex..<endIndex)
   }
 }
 

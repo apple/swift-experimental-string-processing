@@ -71,6 +71,13 @@ struct NSBenchmark: RegexBenchmark {
   enum NSMatchType {
     case allMatches
     case first
+
+    init(_ type: Benchmark.MatchType) {
+      switch type {
+      case .whole, .first: self = .first
+      case .allMatches: self = .allMatches
+      }
+    }
   }
   
   func run() {
@@ -126,7 +133,7 @@ struct CrossBenchmark {
   /// The base name of the benchmark
   var baseName: String
 
-  /// The string to compile in differnet engines
+  /// The string to compile in different engines
   var regex: String
 
   /// The text to search
@@ -143,57 +150,32 @@ struct CrossBenchmark {
   /// Whether or not to do firstMatch as well or just allMatches
   var includeFirst: Bool = false
 
-  func register(_ runner: inout BenchmarkRunner) {
-    let swiftRegex = try! Regex(regex)
-    let nsRegex: NSRegularExpression
-    if isWhole {
-      nsRegex = try! NSRegularExpression(pattern: "^" + regex + "$")
-    } else {
-      nsRegex = try! NSRegularExpression(pattern: regex)
-    }
+  /// Whether to also run scalar-semantic mode
+  var alsoRunScalarSemantic: Bool = true
 
+  func register(_ runner: inout BenchmarkRunner) {
     if isWhole {
-      runner.register(
-        Benchmark(
-          name: baseName + "Whole",
-          regex: swiftRegex,
-          pattern: regex,
-          type: .whole,
-          target: input))
-      runner.register(
-        NSBenchmark(
-          name: baseName + "Whole" + CrossBenchmark.nsSuffix,
-          regex: nsRegex,
-          type: .first,
-          target: input))
+      runner.registerCrossBenchmark(
+        nameBase: baseName,
+        input: input,
+        pattern: regex,
+        .whole,
+        alsoRunScalarSemantic: alsoRunScalarSemantic)
     } else {
-      runner.register(
-        Benchmark(
-          name: baseName + "All",
-          regex: swiftRegex,
-          pattern: regex,
-          type: .allMatches,
-          target: input))
-      runner.register(
-        NSBenchmark(
-          name: baseName + "All" + CrossBenchmark.nsSuffix,
-          regex: nsRegex,
-          type: .allMatches,
-          target: input))
+      runner.registerCrossBenchmark(
+        nameBase: baseName,
+        input: input,
+        pattern: regex,
+        .allMatches,
+        alsoRunScalarSemantic: alsoRunScalarSemantic)
+
       if includeFirst || runner.includeFirstOverride {
-        runner.register(
-          Benchmark(
-            name: baseName + "First",
-            regex: swiftRegex,
-            pattern: regex,
-            type: .first,
-            target: input))
-        runner.register(
-          NSBenchmark(
-            name: baseName + "First" + CrossBenchmark.nsSuffix,
-            regex: nsRegex,
-            type: .first,
-            target: input))
+        runner.registerCrossBenchmark(
+          nameBase: baseName,
+          input: input,
+          pattern: regex,
+          .first,
+          alsoRunScalarSemantic: alsoRunScalarSemantic)
       }
     }
   }
@@ -209,20 +191,16 @@ struct CrossInputListBenchmark {
 
   /// The list of strings to search
   var inputs: [String]
+
+  /// Also run in scalar-semantic mode
+  var alsoRunScalarSemantic: Bool = true
   
   func register(_ runner: inout BenchmarkRunner) {
-    let swiftRegex = try! Regex(regex)
-    runner.register(InputListBenchmark(
+    runner.registerCrossBenchmark(
       name: baseName,
-      regex: swiftRegex,
+      inputList: inputs,
       pattern: regex,
-      targets: inputs
-    ))
-    runner.register(InputListNSBenchmark(
-      name: baseName + CrossBenchmark.nsSuffix,
-      regex: regex,
-      targets: inputs
-    ))
+      alsoRunScalarSemantic: alsoRunScalarSemantic)
   }
 }
 

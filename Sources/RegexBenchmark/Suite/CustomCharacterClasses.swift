@@ -12,53 +12,55 @@ extension BenchmarkRunner {
     
     let input = Inputs.graphemeBreakData
     
-    register(Benchmark(
-      name: "BasicCCC",
-      regex: try! Regex(basic),
+    // TODO: Which of these can be cross-benchmarks?
+
+    register(
+      nameBase: "BasicCCC",
+      input: input,
       pattern: basic,
-      type: .allMatches,
-      target: input))
+      try! Regex(basic),
+      .allMatches)
     
-    register(Benchmark(
-      name: "BasicRangeCCC",
-      regex: try! Regex(basicRange),
+    register(
+      nameBase: "BasicRangeCCC",
+      input: input,
       pattern: basicRange,
-      type: .allMatches,
-      target: input))
+      try! Regex(basicRange),
+      .allMatches)
     
-    register(Benchmark(
-      name: "CaseInsensitiveCCC",
-      regex: try! Regex(caseInsensitive),
+    register(
+      nameBase: "CaseInsensitiveCCC",
+      input: input,
       pattern: caseInsensitive,
-      type: .allMatches,
-      target: input))
+      try! Regex(caseInsensitive),
+      .allMatches)
     
-    register(Benchmark(
-      name: "InvertedCCC",
-      regex: try! Regex(inverted),
+    register(
+      nameBase: "InvertedCCC",
+      input: input,
       pattern: inverted,
-      type: .allMatches,
-      target: input))
+      try! Regex(inverted),
+      .allMatches)
     
-    register(Benchmark(
-      name: "SubtractionCCC",
-      regex: try! Regex(subtraction),
+    register(
+      nameBase: "SubtractionCCC",
+      input: input,
       pattern: subtraction,
-      type: .allMatches,
-      target: input))
+      try! Regex(subtraction),
+      .allMatches)
     
-    register(Benchmark(
-      name: "IntersectionCCC",
-      regex: try! Regex(intersection),
+    register(
+      nameBase: "IntersectionCCC",
+      input: input,
       pattern: intersection,
-      type: .allMatches,
-      target: input))
+      try! Regex(intersection),
+      .allMatches)
     
-    register(Benchmark(
-      name: "symDiffCCC",
-      regex: try! Regex(symmetricDifference),
+    register(
+      nameBase: "symDiffCCC",
+      input: input,
       pattern: symmetricDifference,
-      type: .allMatches,
-      target: input))
+      try! Regex(symmetricDifference),
+      .allMatches)
   }
 }

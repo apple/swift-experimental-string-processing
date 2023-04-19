@@ -1,26 +1,43 @@
 extension Processor {
   func _doQuantifyMatch(_ payload: QuantifyPayload) -> Input.Index? {
-    var next: Input.Index?
+    // TODO: This optimization is only enabled for grapheme cluster semantics,
+    //       we want these for scalar semantics as well.
+
     switch payload.type {
     case .bitset:
-      next = _doMatchBitset(registers[payload.bitset])
+      return input.matchBitset(
+        registers[payload.bitset],
+        at: currentPosition,
+        limitedBy: end,
+        isScalarSemantics: false)
     case .asciiChar:
-      next = _doMatchScalar(
-        UnicodeScalar.init(_value: UInt32(payload.asciiChar)), true)
+      return input.matchScalar(
+        UnicodeScalar.init(_value: UInt32(payload.asciiChar)),
+        at: currentPosition,
+        limitedBy: end,
+        boundaryCheck: true,
+        isCaseInsensitive: false)
     case .builtin:
+      // FIXME: bounds check? endIndex or end?
+
       // We only emit .quantify if it consumes a single character
-      next = input._matchBuiltinCC(
+      return input.matchBuiltinCC(
         payload.builtin,
         at: currentPosition,
         isInverted: payload.builtinIsInverted,
         isStrictASCII: payload.builtinIsStrict,
         isScalarSemantics: false)
     case .any:
-      let matched = currentPosition != input.endIndex
-        && (!input[currentPosition].isNewline || payload.anyMatchesNewline)
-      next = matched ? input.index(after: currentPosition) : nil
+      // FIXME: endIndex or end?
+      guard currentPosition < input.endIndex else { return nil }
+
+      if payload.anyMatchesNewline {
+        return input.index(after: currentPosition)
+      }
+
+      return input.matchAnyNonNewline(
+        at: currentPosition, isScalarSemantics: false)
     }
-    return next
   }
 
   /// Generic quantify instruction interpreter
@@ -30,7 +47,7 @@ extension Processor {
     var trips = 0
     var extraTrips = payload.extraTrips
     var savePoint = startQuantifierSavePoint()
-    
+
     while true {
       if trips >= payload.minTrips {
         if extraTrips == 0 { break }
@@ -40,7 +57,14 @@ extension Processor {
         }
       }
       let next = _doQuantifyMatch(payload)
-      guard let idx = next else { break }
+      guard let idx = next else {
+        if !savePoint.rangeIsEmpty {
+          // The last save point has saved the current, non-matching position,
+          // so it's unneeded.
+          savePoint.shrinkRange(input)
+        }
+        break
+      }
       currentPosition = idx
       trips += 1
     }
@@ -50,12 +74,8 @@ extension Processor {
       return false
     }
 
-    if payload.quantKind == .eager && !savePoint.rangeIsEmpty {
-      // The last save point has saved the current position, so it's unneeded
-      savePoint.shrinkRange(input)
-      if !savePoint.rangeIsEmpty {
-        savePoints.append(savePoint)
-      }
+    if !savePoint.rangeIsEmpty {
+      savePoints.append(savePoint)
     }
     return true
   }

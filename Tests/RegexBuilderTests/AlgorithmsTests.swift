@@ -16,7 +16,7 @@ import RegexBuilder
 @available(SwiftStdlib 5.7, *)
 class RegexConsumerTests: XCTestCase {
   func testMatches() {
-    let regex = Capture(OneOrMore(.digit)) { 2 * Int($0)! }
+    let regex = Capture<(Substring, Int)>(OneOrMore(.digit)) { 2 * Int($0)! }
     let str = "foo 160 bar 99 baz"
     XCTAssertEqual(str.matches(of: regex).map(\.output.1), [320, 198])
   }

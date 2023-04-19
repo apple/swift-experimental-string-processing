@@ -1091,7 +1091,7 @@ class RegexDSLTests: XCTestCase {
       OneOrMore("a")
       Capture {
         TryCapture("b", transform: { Int($0) })
-        ZeroOrMore(
+        ZeroOrMore<(Substring, Double?)>(
           TryCapture("c", transform: { Double($0) })
         )
         Optionally("e")
@@ -1542,12 +1542,12 @@ class RegexDSLTests: XCTestCase {
       in bounds: Range<String.Index>
     ) throws -> (upperBound: String.Index, output: SemanticVersion)? {
       let regex = Regex {
-        TryCapture(OneOrMore(.digit)) { Int($0) }
+        TryCapture<(Substring, Int)>(OneOrMore(.digit)) { Int($0) }
         "."
-        TryCapture(OneOrMore(.digit)) { Int($0) }
+        TryCapture<(Substring, Int)>(OneOrMore(.digit)) { Int($0) }
         Optionally {
           "."
-          TryCapture(OneOrMore(.digit)) { Int($0) }
+          TryCapture<(Substring, Int)>(OneOrMore(.digit)) { Int($0) }
         }
         Optionally {
           "-"
@@ -1876,7 +1876,7 @@ extension RegexDSLTests {
       ":"
       regexWithTooManyCaptures
       ":"
-      TryCapture(OneOrMore(.word)) { Int($0) }
+      TryCapture<(Substring, Int)>(OneOrMore(.word)) { Int($0) }
       #/:(\d+):/#
     }
     XCTAssert(type(of: dslWithTooManyCaptures).self

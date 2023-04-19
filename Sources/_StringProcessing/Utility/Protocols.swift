@@ -44,13 +44,3 @@ protocol ProcessorProtocol {
   var registers: Registers { get }
 }
 
-extension ProcessorProtocol {
-  func fetch() -> Instruction {
-    instructions[currentPC]
-  }
-
-  var callStack: Array<InstructionAddress> { [] }
-//  var savePoints: Array<SavePoint> { [] }
-  var registers: Array<Registers> { [] }
-
-}

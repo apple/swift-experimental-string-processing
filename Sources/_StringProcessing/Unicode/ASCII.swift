@@ -9,25 +9,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-private var _lineFeed: UInt8 { 0x0A }
-private var _carriageReturn: UInt8 { 0x0D }
-private var _lineTab: UInt8 { 0x0B }
-private var _formFeed: UInt8 { 0x0C }
-private var _space: UInt8 { 0x20 }
-private var _tab: UInt8 { 0x09 }
+extension UInt8 {
+  static var _lineFeed: UInt8 { 0x0A }
+  static var _carriageReturn: UInt8 { 0x0D }
+  static var _lineTab: UInt8 { 0x0B }
+  static var _formFeed: UInt8 { 0x0C }
+  static var _space: UInt8 { 0x20 }
+  static var _tab: UInt8 { 0x09 }
+
+  static var _underscore: UInt8 { 0x5F }
+}
 
 private var _0: UInt8 { 0x30 }
 private var _9: UInt8 { 0x39 }
-private func _isASCIINumber(_ x: UInt8) -> Bool {
-  return (_0..._9).contains(x)
-}
 
 private var _a: UInt8 { 0x61 }
 private var _z: UInt8 { 0x7A }
 private var _A: UInt8 { 0x41 }
 private var _Z: UInt8 { 0x5A }
-
-private var _underscore: UInt8 { 0x5F }
 
 extension UInt8 {
   var _isASCII: Bool { self < 0x80 }
@@ -43,14 +42,14 @@ extension UInt8 {
   /// Assuming we're ASCII, whether we match `\h`
   var _asciiIsHorizontalWhitespace: Bool {
     assert(_isASCII)
-    return self == _space || self == _tab
+    return self == ._space || self == ._tab
   }
 
   /// Assuming we're ASCII, whether we match `\v`
   var _asciiIsVerticalWhitespace: Bool {
     assert(_isASCII)
     switch self {
-    case _lineFeed, _carriageReturn, _lineTab, _formFeed:
+    case ._lineFeed, ._carriageReturn, ._lineTab, ._formFeed:
       return true
     default:
       return false
@@ -61,7 +60,7 @@ extension UInt8 {
   var _asciiIsWhitespace: Bool {
     assert(_isASCII)
     switch self {
-    case _space, _tab, _lineFeed, _lineTab, _formFeed, _carriageReturn:
+    case ._space, ._tab, ._lineFeed, ._lineTab, ._formFeed, ._carriageReturn:
       return true
     default:
       return false
@@ -77,11 +76,13 @@ extension UInt8 {
   /// Assuming we're ASCII, whether we match `\w`
   var _asciiIsWord: Bool {
     assert(_isASCII)
-    return _asciiIsDigit || _asciiIsLetter || self == _underscore
+    return _asciiIsDigit || _asciiIsLetter || self == ._underscore
   }
 }
 
 extension String {
+  /// TODO: better to take isScalarSemantics parameter, we can return more results
+  /// and we can give the right `next` index, not requiring the caller to re-adjust it
   /// TODO: detailed description of nuanced semantics
   func _quickASCIICharacter(
     at idx: Index
@@ -107,7 +108,7 @@ extension String {
     guard tail._isSub300StartingByte else { return nil }
 
     // Handle CR-LF:
-    if base == _carriageReturn && tail == _lineFeed {
+    if base == ._carriageReturn && tail == ._lineFeed {
       utf8.formIndex(after: &next)
       guard next == endIndex || utf8[next]._isSub300StartingByte else {
         return nil
@@ -165,5 +166,6 @@ extension String {
       return (next, asciiValue._asciiIsWord)
     }
   }
+
 }
 

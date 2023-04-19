@@ -122,31 +122,6 @@ extension Collection {
   }
 }
 
-// MARK: Predicate algorithms
-
-extension Collection {
-  // TODO: Non-escaping and throwing
-  func split(
-    whereSeparator predicate: @escaping (Element) -> Bool,
-    maxSplits: Int,
-    omittingEmptySubsequences: Bool
-  ) -> SplitCollection<PredicateConsumer<Self>> {
-    split(by: PredicateConsumer(predicate: predicate), maxSplits: maxSplits, omittingEmptySubsequences: omittingEmptySubsequences)
-  }
-}
-
-// MARK: Single element algorithms
-
-extension Collection where Element: Equatable {
-  func split(
-    by separator: Element,
-    maxSplits: Int,
-    omittingEmptySubsequences: Bool
-  ) -> SplitCollection<PredicateConsumer<Self>> {
-    split(whereSeparator: { $0 == separator }, maxSplits: maxSplits, omittingEmptySubsequences: omittingEmptySubsequences)
-  }
-}
-
 // MARK: Fixed pattern algorithms
 
 extension Collection where Element: Equatable {
@@ -178,41 +153,6 @@ extension Collection where Element: Equatable {
       maxSplits: maxSplits,
       omittingEmptySubsequences: omittingEmptySubsequences))
   }
-}
-
-extension BidirectionalCollection where Element: Equatable {
-  // FIXME
-//  public func splitFromBack<S: Sequence>(
-//    separator: S
-//  ) -> ReversedSplitCollection<ZSearcher<SubSequence>>
-//    where S.Element == Element
-//  {
-//    splitFromBack(separator: ZSearcher(pattern: Array(separator), by: ==))
-//  }
-}
-
-extension BidirectionalCollection where Element: Comparable {
-  func split<C: Collection>(
-    by separator: C,
-    maxSplits: Int,
-    omittingEmptySubsequences: Bool
-  ) -> SplitCollection<PatternOrEmpty<TwoWaySearcher<Self>>>
-    where C.Element == Element
-  {
-    split(
-      by: PatternOrEmpty(searcher: TwoWaySearcher(pattern: Array(separator))),
-    maxSplits: maxSplits, omittingEmptySubsequences: omittingEmptySubsequences)
-  }
-  
-  // FIXME
-//  public func splitFromBack<S: Sequence>(
-//    separator: S
-//  ) -> ReversedSplitCollection<PatternOrEmpty<TwoWaySearcher<SubSequence>>>
-//    where S.Element == Element
-//  {
-//    splitFromBack(separator: PatternOrEmpty(
-//      searcher: TwoWaySearcher(pattern: Array(separator))))
-//  }
 }
 
 // String split overload breakers

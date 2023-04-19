@@ -4,6 +4,16 @@ import Foundation
 /// The number of times to re-run the benchmark if results are too varying
 private var rerunCount: Int { 3 }
 
+extension Benchmark.MatchType {
+  fileprivate var nameSuffix: String {
+    switch self {
+    case .whole: return "_Whole"
+    case .first: return "_First"
+    case .allMatches: return "_All"
+    }
+  }
+}
+
 struct BenchmarkRunner {
   let suiteName: String
   var suite: [any RegexBenchmark] = []
@@ -16,12 +26,141 @@ struct BenchmarkRunner {
   
   // Forcibly include firstMatch benchmarks for all CrossBenchmarks
   let includeFirstOverride: Bool
+
+  // Register a cross-benchmark
+  mutating func registerCrossBenchmark(
+    nameBase: String,
+    input: String,
+    pattern: String,
+    _ type: Benchmark.MatchType,
+    alsoRunScalarSemantic: Bool = true
+  ) {
+    let swiftRegex = try! Regex(pattern)
+    let nsRegex: NSRegularExpression
+    if type == .whole {
+      nsRegex = try! NSRegularExpression(pattern: "^" + pattern + "$")
+    } else {
+      nsRegex = try! NSRegularExpression(pattern: pattern)
+    }
+    let nameSuffix = type.nameSuffix
+
+    register(
+      Benchmark(
+        name: nameBase + nameSuffix,
+        regex: swiftRegex,
+        pattern: pattern,
+        type: type,
+        target: input))
+    register(
+      NSBenchmark(
+        name: nameBase + nameSuffix + CrossBenchmark.nsSuffix,
+        regex: nsRegex,
+        type: .init(type),
+        target: input))
+
+    if alsoRunScalarSemantic {
+      register(
+        Benchmark(
+          name: nameBase + nameSuffix + "_Scalar",
+          regex: swiftRegex.matchingSemantics(.unicodeScalar),
+          pattern: pattern,
+          type: type,
+          target: input))
+      register(
+        NSBenchmark(
+          name: nameBase + nameSuffix + "_Scalar" + CrossBenchmark.nsSuffix,
+          regex: nsRegex,
+          type: .init(type),
+          target: input))
+    }
+  }
+
+  // Register a cross-benchmark list
+  mutating func registerCrossBenchmark(
+    name: String,
+    inputList: [String],
+    pattern: String,
+    alsoRunScalarSemantic: Bool = true
+  ) {
+    let swiftRegex = try! Regex(pattern)
+    register(InputListBenchmark(
+      name: name,
+      regex: swiftRegex,
+      pattern: pattern,
+      targets: inputList
+    ))
+    register(InputListNSBenchmark(
+      name: name + CrossBenchmark.nsSuffix,
+      regex: pattern,
+      targets: inputList
+    ))
+
+    if alsoRunScalarSemantic {
+      register(InputListBenchmark(
+        name: name + "_Scalar",
+        regex: swiftRegex.matchingSemantics(.unicodeScalar),
+        pattern: pattern,
+        targets: inputList
+      ))
+      register(InputListNSBenchmark(
+        name: name + "_Scalar" + CrossBenchmark.nsSuffix,
+        regex: pattern,
+        targets: inputList
+      ))
+    }
+
+  }
+
+  // Register a swift-only benchmark
+  mutating func register(
+    nameBase: String,
+    input: String,
+    pattern: String,
+    _ swiftRegex: Regex<AnyRegexOutput>,
+    _ type: Benchmark.MatchType,
+    alsoRunScalarSemantic: Bool = true
+  ) {
+    let nameSuffix = type.nameSuffix
+
+    register(
+      Benchmark(
+        name: nameBase + nameSuffix,
+        regex: swiftRegex,
+        pattern: pattern,
+        type: type,
+        target: input))
+
+    if alsoRunScalarSemantic {
+      register(
+        Benchmark(
+          name: nameBase + nameSuffix + "_Scalar",
+          regex: swiftRegex,
+          pattern: pattern,
+          type: type,
+          target: input))
+    }
+  }
   
-  mutating func register(_ benchmark: some RegexBenchmark) {
+  private mutating func register(_ benchmark: NSBenchmark) {
     suite.append(benchmark)
   }
   
-  mutating func register(_ benchmark: some SwiftRegexBenchmark) {
+  private mutating func register(_ benchmark: Benchmark) {
+    var benchmark = benchmark
+    if enableTracing {
+      benchmark.enableTracing()
+    }
+    if enableMetrics {
+      benchmark.enableMetrics()
+    }
+    suite.append(benchmark)
+  }
+
+  private mutating func register(_ benchmark: InputListNSBenchmark) {
+    suite.append(benchmark)
+  }
+
+  private mutating func register(_ benchmark: InputListBenchmark) {
     var benchmark = benchmark
     if enableTracing {
       benchmark.enableTracing()

@@ -23,7 +23,6 @@ add_library(_StringProcessing
   Algorithms/Searchers/NaivePatternSearcher.swift
   Algorithms/Searchers/PatternOrEmpty.swift
   Algorithms/Searchers/PredicateSearcher.swift
-  Algorithms/Searchers/TwoWaySearcher.swift
   Algorithms/Searchers/ZSearcher.swift
   Engine/Backtracking.swift
   Engine/Consume.swift

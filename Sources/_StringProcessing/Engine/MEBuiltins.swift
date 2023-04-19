@@ -15,7 +15,7 @@ extension Processor {
     isStrictASCII: Bool,
     isScalarSemantics: Bool
   ) -> Bool {
-    guard let next = input._matchBuiltinCC(
+    guard let next = input.matchBuiltinCC(
       cc,
       at: currentPosition,
       isInverted: isInverted,
@@ -30,6 +30,7 @@ extension Processor {
   }
 
   func isAtStartOfLine(_ payload: AssertionPayload) -> Bool {
+    // TODO: needs benchmark coverage
     if currentPosition == subjectBounds.lowerBound { return true }
     switch payload.semanticLevel {
     case .graphemeCluster:
@@ -40,6 +41,7 @@ extension Processor {
   }
 
   func isAtEndOfLine(_ payload: AssertionPayload) -> Bool {
+    // TODO: needs benchmark coverage
     if currentPosition == subjectBounds.upperBound { return true }
     switch payload.semanticLevel {
     case .graphemeCluster:
@@ -50,6 +52,8 @@ extension Processor {
   }
 
   mutating func builtinAssert(by payload: AssertionPayload) throws -> Bool {
+    // TODO: needs benchmark coverage
+
     // Future work: Optimize layout and dispatch
     switch payload.kind {
     case .startOfSubject: return currentPosition == subjectBounds.lowerBound
@@ -59,10 +63,10 @@ extension Processor {
       switch payload.semanticLevel {
       case .graphemeCluster:
         return input.index(after: currentPosition) == subjectBounds.upperBound
-         && input[currentPosition].isNewline
+        && input[currentPosition].isNewline
       case .unicodeScalar:
         return input.unicodeScalars.index(after: currentPosition) == subjectBounds.upperBound
-         && input.unicodeScalars[currentPosition].isNewline
+        && input.unicodeScalars[currentPosition].isNewline
       }
 
     case .endOfSubject: return currentPosition == subjectBounds.upperBound
@@ -115,12 +119,75 @@ extension Processor {
   }
 }
 
-// MARK: Built-in character class matching
-
+// MARK: Matching `.`
 extension String {
+  // TODO: Should the below have a `limitedBy` parameter?
+
+  func matchAnyNonNewline(
+    at currentPosition: String.Index,
+    isScalarSemantics: Bool
+  ) -> String.Index? {
+    guard currentPosition < endIndex else {
+      return nil
+    }
+    if case .definite(let result) = _quickMatchAnyNonNewline(
+      at: currentPosition,
+      isScalarSemantics: isScalarSemantics
+    ) {
+      assert(result == _thoroughMatchAnyNonNewline(
+        at: currentPosition,
+        isScalarSemantics: isScalarSemantics))
+      return result
+    }
+    return _thoroughMatchAnyNonNewline(
+      at: currentPosition,
+      isScalarSemantics: isScalarSemantics)
+  }
+
+  @inline(__always)
+  private func _quickMatchAnyNonNewline(
+    at currentPosition: String.Index,
+    isScalarSemantics: Bool
+  ) -> QuickResult<String.Index?> {
+    assert(currentPosition < endIndex)
+    guard let (asciiValue, next, isCRLF) = _quickASCIICharacter(
+      at: currentPosition
+    ) else {
+      return .unknown
+    }
+    switch asciiValue {
+    case (._lineFeed)...(._carriageReturn):
+      return .definite(nil)
+    default:
+      assert(!isCRLF)
+      return .definite(next)
+    }
+  }
+
+  @inline(never)
+  private func _thoroughMatchAnyNonNewline(
+    at currentPosition: String.Index,
+    isScalarSemantics: Bool
+  ) -> String.Index? {
+    assert(currentPosition < endIndex)
+    if isScalarSemantics {
+      let scalar = unicodeScalars[currentPosition]
+      guard !scalar.isNewline else { return nil }
+      return unicodeScalars.index(after: currentPosition)
+    }
+
+    let char = self[currentPosition]
+    guard !char.isNewline else { return nil }
+    return index(after: currentPosition)
+  }
+}
+
+// MARK: - Built-in character class matching
+extension String {
+  // TODO: Should the below have a `limitedBy` parameter?
 
   // Mentioned in ProgrammersManual.md, update docs if redesigned
-  func _matchBuiltinCC(
+  func matchBuiltinCC(
     _ cc: _CharacterClassModel.Representation,
     at currentPosition: String.Index,
     isInverted: Bool,
@@ -155,7 +222,7 @@ extension String {
 
   // Mentioned in ProgrammersManual.md, update docs if redesigned
   @inline(__always)
-  func _quickMatchBuiltinCC(
+  private func _quickMatchBuiltinCC(
     _ cc: _CharacterClassModel.Representation,
     at currentPosition: String.Index,
     isInverted: Bool,
@@ -173,7 +240,7 @@ extension String {
 
   // Mentioned in ProgrammersManual.md, update docs if redesigned
   @inline(never)
-  func _thoroughMatchBuiltinCC(
+  private func _thoroughMatchBuiltinCC(
     _ cc: _CharacterClassModel.Representation,
     at currentPosition: String.Index,
     isInverted: Bool,

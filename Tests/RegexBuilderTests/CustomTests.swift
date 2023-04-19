@@ -64,7 +64,7 @@ private struct IntParser: CustomConsumingRegexComponent {
     guard index != bounds.upperBound else { return nil }
 
     let r = Regex {
-      Capture(OneOrMore(.digit)) { Int($0) }
+      Capture<(Substring, Int?)>(OneOrMore(.digit)) { Int($0) }
     }
 
     guard let match = input[index..<bounds.upperBound].prefixMatch(of: r),
@@ -694,7 +694,7 @@ class CustomRegexComponentTests: XCTestCase {
       OneOrMore {
         CharacterClass("A"..."Z")
         OneOrMore(CharacterClass("a"..."z"))
-        Capture(Repeat(.digit, count: 2)) { Int($0) }
+        Capture<(Substring, Int?)>(Repeat(.digit, count: 2)) { Int($0) }
       }
     }
 
