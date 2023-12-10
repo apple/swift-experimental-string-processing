@@ -378,7 +378,7 @@ extension Instruction.Payload {
 struct QuantifyPayload: RawRepresentable {
   let rawValue: UInt64
   enum PayloadType: UInt64 {
-    case bitset = 0
+    case asciiBitset = 0
     case asciiChar = 1
     case any = 2
     case builtin = 4
@@ -448,7 +448,7 @@ struct QuantifyPayload: RawRepresentable {
   ) {
     assert(bitset.bits <= _payloadMask)
     self.rawValue = bitset.bits
-      + QuantifyPayload.packInfoValues(kind, minTrips, maxExtraTrips, .bitset, isScalarSemantics: isScalarSemantics)
+      + QuantifyPayload.packInfoValues(kind, minTrips, maxExtraTrips, .asciiBitset, isScalarSemantics: isScalarSemantics)
   }
 
   init(

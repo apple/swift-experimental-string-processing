@@ -291,7 +291,7 @@ extension Processor {
     _ bitset: DSLTree.CustomCharacterClass.AsciiBitset,
     isScalarSemantics: Bool
   ) -> Bool {
-    guard let next = input.matchBitset(
+    guard let next = input.matchASCIIBitset(
       bitset,
       at: currentPosition,
       limitedBy: end,
@@ -723,22 +723,46 @@ extension String {
     return idx
   }
 
-  func matchBitset(
+  func matchASCIIBitset(
     _ bitset: DSLTree.CustomCharacterClass.AsciiBitset,
     at pos: Index,
     limitedBy end: Index,
     isScalarSemantics: Bool
   ) -> Index? {
-    // TODO: extremely quick-check-able
-    // TODO: can be sped up with string internals
-    if isScalarSemantics {
-      guard pos < end else { return nil }
-      guard bitset.matches(unicodeScalars[pos]) else { return nil }
-      return unicodeScalars.index(after: pos)
-    } else {
-      guard let (char, next) = characterAndEnd(at: pos, limitedBy: end),
-            bitset.matches(char) else { return nil }
-      return next
+
+    // FIXME: Inversion should be tracked and handled in only one place.
+    // That is, we should probably store it as a bit in the instruction, so that
+    // bitset matching and bitset inversion is bit-based rather that semantically
+    // inverting the notion of a match or not. As-is, we need to track both
+    // meanings in some code paths.
+    let isInverted = bitset.isInverted
+
+    guard let (asciiByte, isCRLF: isCRLF, next) = _quickASCIICharacter(
+      at: pos,
+      limitedBy: end,
+      isScalarSemantics: isScalarSemantics
+    ) else {
+      if isScalarSemantics {
+        guard pos < end else { return nil }
+        guard bitset.matches(unicodeScalars[pos]) else { return nil }
+        return unicodeScalars.index(after: pos)
+      } else {
+        guard let (char, next) = characterAndEnd(at: pos, limitedBy: end),
+              bitset.matches(char) else { return nil }
+        return next
+      }
     }
+
+    guard bitset.matches(asciiByte) else {
+      // FIXME: check inversion here after refactored out of bitset
+      return nil
+    }
+
+    // CR-LF should only match `[\r]` in scalar semantic mode or if inverted
+    if isCRLF && !isScalarSemantics && !isInverted {
+      return nil
+    }
+
+    return next
   }
 }

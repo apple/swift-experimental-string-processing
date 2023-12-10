@@ -3,8 +3,8 @@ extension Processor {
     let isScalarSemantics = payload.isScalarSemantics
 
     switch payload.type {
-    case .bitset:
-      return input.matchBitset(
+    case .asciiBitset:
+      return input.matchASCIIBitset(
         registers[payload.bitset],
         at: currentPosition,
         limitedBy: end,

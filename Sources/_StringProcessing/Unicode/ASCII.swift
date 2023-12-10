@@ -81,13 +81,22 @@ extension UInt8 {
 }
 
 extension String {
-  /// TODO: better to take isScalarSemantics parameter, we can return more results
-  /// and we can give the right `next` index, not requiring the caller to re-adjust it
-  /// TODO: detailed description of nuanced semantics
+  ///
+  /// If the position in the input is not definitely a full-ASCII character (uses sub-`0x300` quick check
+  /// on next byte), return `nil.`
+  ///
+  /// Otherwise, returns:
+  ///   1. The first ASCII byte for a character (or scalar if `isScalarSemantics`)
+  ///   2. Whether the ASCII Character is CR-LF
+  ///   3. The index for the end of that particular ASCII character:
+  ///     If the character is not CR-LF, the index of the next byte
+  ///     if `isScalarSemantics` is false and the ASCII character is CR-LF, the index after the CR-LF sequence.
+  ///
   func _quickASCIICharacter(
     at idx: Index,
-    limitedBy end: Index
-  ) -> (first: UInt8, next: Index, crLF: Bool)? {
+    limitedBy end: Index,
+    isScalarSemantics: Bool
+  ) -> (firstASCIIByte: UInt8, isCRLF: Bool, asciiCharacterEnd: Index)? {
     // TODO: fastUTF8 version
     assert(String.Index(idx, within: unicodeScalars) != nil)
     assert(idx <= end)
@@ -101,25 +110,25 @@ extension String {
       return nil
     }
 
-    var next = utf8.index(after: idx)
-    if next == end {
-      return (first: base, next: next, crLF: false)
+    let byteEnd = utf8.index(after: idx)
+    if isScalarSemantics || byteEnd == end {
+      return (firstASCIIByte: base, isCRLF: false, asciiCharacterEnd: byteEnd)
     }
 
-    let tail = utf8[next]
+    let tail = utf8[byteEnd]
     guard tail._isSub300StartingByte else { return nil }
 
     // Handle CR-LF:
     if base == ._carriageReturn && tail == ._lineFeed {
-      utf8.formIndex(after: &next)
-      guard next == end || utf8[next]._isSub300StartingByte else {
+      let crLFEnd = utf8.index(after: byteEnd)
+      guard crLFEnd == end || utf8[crLFEnd]._isSub300StartingByte else {
         return nil
       }
-      return (first: base, next: next, crLF: true)
+      return (firstASCIIByte: base, isCRLF: true, asciiCharacterEnd: crLFEnd)
     }
 
     assert(self[idx].isASCII && self[idx] != "\r\n")
-    return (first: base, next: next, crLF: false)
+    return (firstASCIIByte: base, isCRLF: false, asciiCharacterEnd: byteEnd)
   }
 
   func _quickMatch(
@@ -128,44 +137,47 @@ extension String {
     limitedBy end: Index,
     isScalarSemantics: Bool
   ) -> (next: Index, matchResult: Bool)? {
+    // Don't use scalar semantics in this quick path for anyGrapheme cluster or
+    // newline sequences, which are not scalar character classes.
+    let useScalarSemantics = isScalarSemantics && cc != .anyGrapheme && cc != .newlineSequence
     /// ASCII fast-paths
-    guard let (asciiValue, next, isCRLF) = _quickASCIICharacter(
-      at: idx, limitedBy: end
+    guard let (asciiValue, isCRLF: isCRLF, charEnd) = _quickASCIICharacter(
+      at: idx,
+      limitedBy: end,
+      isScalarSemantics: useScalarSemantics
     ) else {
       return nil
     }
 
     // TODO: bitvectors
     switch cc {
-    case .any, .anyGrapheme:
-      return (next, true)
+    case .any:
+      return (charEnd, true)
+
+    case .anyGrapheme:
+      // _quickASCIICharacter call handled CR-LF for us
+      _ = isCRLF
+      return (charEnd, true)
 
     case .digit:
-      return (next, asciiValue._asciiIsDigit)
+      return (charEnd, asciiValue._asciiIsDigit)
 
     case .horizontalWhitespace:
-      return (next, asciiValue._asciiIsHorizontalWhitespace)
+      return (charEnd, asciiValue._asciiIsHorizontalWhitespace)
 
-    case .verticalWhitespace, .newlineSequence:
-      if asciiValue._asciiIsVerticalWhitespace {
-        if isScalarSemantics && isCRLF && cc == .verticalWhitespace {
-          return (utf8.index(before: next), true)
-        }
-        return (next, true)
-      }
-      return (next, false)
+    case .verticalWhitespace:
+      return (charEnd, asciiValue._asciiIsVerticalWhitespace)
+
+    case .newlineSequence:
+      // _quickASCIICharacter call handled CR-LF for us
+      _ = isCRLF
+      return (charEnd, asciiValue._asciiIsVerticalWhitespace)
 
     case .whitespace:
-      if asciiValue._asciiIsWhitespace {
-        if isScalarSemantics && isCRLF {
-          return (utf8.index(before: next), true)
-        }
-        return (next, true)
-      }
-      return (next, false)
+      return (charEnd, asciiValue._asciiIsWhitespace)
 
     case .word:
-      return (next, asciiValue._asciiIsWord)
+      return (charEnd, asciiValue._asciiIsWord)
     }
   }
 

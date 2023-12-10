@@ -191,8 +191,10 @@ extension String {
     isScalarSemantics: Bool
   ) -> QuickResult<String.Index?> {
     assert(currentPosition < end)
-    guard let (asciiValue, next, isCRLF) = _quickASCIICharacter(
-      at: currentPosition, limitedBy: end
+    guard let (asciiValue, isCRLF: isCRLF, next) = _quickASCIICharacter(
+      at: currentPosition,
+      limitedBy: end,
+      isScalarSemantics: isScalarSemantics
     ) else {
       return .unknown
     }
