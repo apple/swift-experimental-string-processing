@@ -223,6 +223,25 @@ extension String {
     else { return nil }
     return next
   }
+
+  internal func matchRegexDot(
+    at currentPosition: Index,
+    limitedBy end: Index,
+    anyMatchesNewline: Bool,
+    isScalarSemantics: Bool
+  ) -> Index? {
+    guard currentPosition < end else { return nil }
+
+    if anyMatchesNewline {
+      return index(
+        after: currentPosition, isScalarSemantics: isScalarSemantics)
+    }
+
+    return matchAnyNonNewline(
+      at: currentPosition,
+      limitedBy: end,
+      isScalarSemantics: isScalarSemantics)
+  }
 }
 
 // MARK: - Built-in character class matching

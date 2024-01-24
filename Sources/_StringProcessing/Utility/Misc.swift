@@ -65,3 +65,15 @@ enum QuickResult<R> {
   case unknown
 }
 
+extension String {
+  /// Index after in either grapheme or scalar view
+  func index(after idx: Index, isScalarSemantics: Bool) -> Index {
+    if isScalarSemantics {
+      return unicodeScalars.index(after: idx)
+    } else {
+      return index(after: idx)
+    }
+  }
+}
+
+

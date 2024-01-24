@@ -515,23 +515,7 @@ extension Processor {
         controller.step()
       }
     case .quantify:
-      let quantPayload = payload.quantify
-      let matched: Bool
-      switch (quantPayload.quantKind, quantPayload.minTrips, quantPayload.maxExtraTrips) {
-      case (.reluctant, _, _):
-        assertionFailure(".reluctant is not supported by .quantify")
-        return
-      case (.eager, 0, nil):
-        runEagerZeroOrMoreQuantify(quantPayload)
-        matched = true
-      case (.eager, 1, nil):
-        matched = runEagerOneOrMoreQuantify(quantPayload)
-      case (_, 0, 1):
-        matched = runZeroOrOneQuantify(quantPayload)
-      default:
-        matched = runQuantify(quantPayload)
-      }
-      if matched {
+      if runQuantify(payload.quantify) {
         controller.step()
       }
 
