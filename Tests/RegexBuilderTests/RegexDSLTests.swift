@@ -1842,6 +1842,8 @@ fileprivate let regexWithCapture = #/:(\d+):/#
 fileprivate let regexWithLabeledCapture = #/:(?<number>\d+):/#
 @available(SwiftStdlib 5.7, *)
 fileprivate let regexWithNonCapture = #/:(?:\d+):/#
+@available(SwiftStdlib 5.7, *)
+fileprivate let regexWithMultipleCaptures = #/:(\d+):(.+):(\d+):/#
 
 @available(SwiftStdlib 5.7, *)
 extension RegexDSLTests {
@@ -2028,6 +2030,94 @@ extension RegexDSLTests {
     XCTAssertEqual(match.output.1, "c")
     XCTAssertEqual(match.output.2, "b")
     XCTAssertNil(match.output.3)
+  }
+  
+  func testVariadicNesting_Compilation() {
+    let x_sOCs৲৲_x = 1
+    let regex_OC = Regex { // sOCsco
+      "a"
+      Optionally {
+        Capture { "b" }
+      }
+    }
+    let _: Regex<(Substring, Substring?)> = regex_OC
+    
+    let regex_OCC = Regex {
+      "a"
+      Optionally {
+        Capture { "b" }
+        Capture { "c" }
+      }
+    }
+    let _: Regex<(Substring, Substring?, Substring?)> = regex_OCC
+
+    let regex_O_OC = Regex {
+      Optionally {
+        regex_OC
+      }
+    }
+    let _: Regex<(Substring, Substring??)> = regex_O_OC
+    
+    let regex_O_OCC = Regex {
+      Optionally {
+        regex_OCC
+      }
+    }
+    let _: Regex<(Substring, Substring??, Substring??)> = regex_O_OCC
+
+    let regex_O_OC_OC = Regex {
+      Optionally {
+        regex_OC
+        regex_OC
+      }
+    }
+    let _: Regex<(Substring, Substring??, Substring??)> = regex_O_OC_OC
+
+    let regex_O_OCC_OC = Regex {
+      Optionally {
+        regex_OCC
+        regex_OC
+      }
+    }
+    let _: Regex<(Substring, Substring??, Substring??, Substring??)> = regex_O_OCC_OC
+
+    let regex_O_OCC_OCC = Regex {
+      Optionally {
+        regex_OCC
+        regex_OCC
+      }
+    }
+    let _: Regex<(Substring, Substring??, Substring??, Substring??, Substring??)> = regex_O_OCC_OCC
+    
+    let regexChoices_CCOC = Regex {
+      ChoiceOf {
+        Capture { "A" }
+        "b"
+        "c"
+        Capture { "D" }
+        Optionally {
+          Capture {
+            "E"
+          }
+        }
+      }
+    }
+    let _: Regex<(Substring, Substring?, Substring?, Substring??)> = regexChoices_CCOC
+    
+    let regex_Zr3Mr3MOr3e = Regex {
+      ZeroOrMore {
+        regexWithMultipleCaptures
+      }
+      OneOrMore {
+        regexWithMultipleCaptures
+      }
+      OneOrMore {
+        Optionally {
+          regexWithMultipleCaptures
+        }
+      }
+    }
+    let _: Regex<(Substring, Substring?, Substring?, Substring?, Substring, Substring, Substring, Substring?, Substring?, Substring?)> = regex_Zr3Mr3MOr3
   }
 }
 
