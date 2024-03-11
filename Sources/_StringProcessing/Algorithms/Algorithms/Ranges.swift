@@ -135,6 +135,13 @@ extension Collection where Element: Equatable {
   ) -> RangesCollection<ZSearcher<Self>> where C.Element == Element {
     _ranges(of: ZSearcher(pattern: Array(other), by: ==))
   }
+  
+  @usableFromInline
+  func _rangesGeneric<C: Collection>(
+    of other: C
+  ) -> [Range<Index>] where C.Element == Element {
+    Array(_ranges(of: other))
+  }
 
   // FIXME: Return `some Collection<Range<Index>>` for SE-0346
   /// Finds and returns the ranges of the all occurrences of a given sequence
@@ -143,10 +150,23 @@ extension Collection where Element: Equatable {
   /// - Returns: A collection of ranges of all occurrences of `other`. Returns
   ///  an empty collection if `other` is not found.
   @available(SwiftStdlib 5.7, *)
+  @inline(__always)
   public func ranges<C: Collection>(
     of other: C
   ) -> [Range<Index>] where C.Element == Element {
-    Array(_ranges(of: other))
+    switch (self, other) {
+    case (let str as String, let other as String):
+      return Array(SubstringSearcher(text: str[...], pattern: other[...])) as! [Range<Index>]
+    case (let str as Substring, let other as String):
+      return Array(SubstringSearcher(text: str, pattern: other[...])) as! [Range<Index>]
+    case (let str as String, let other as Substring):
+      return Array(SubstringSearcher(text: str[...], pattern: other)) as! [Range<Index>]
+    case (let str as Substring, let other as Substring):
+      return Array(SubstringSearcher(text: str, pattern: other)) as! [Range<Index>]
+      
+    default:
+      return _rangesGeneric(of: other)
+    }
   }
 }
 
