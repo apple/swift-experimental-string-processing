@@ -25,7 +25,7 @@ struct Controller {
   }
 }
 
-struct Processor {
+struct Processor: ~Copyable {
   typealias Input = String
   typealias Element = Input.Element
 
