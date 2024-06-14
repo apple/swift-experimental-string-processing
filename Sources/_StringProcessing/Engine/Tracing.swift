@@ -11,7 +11,7 @@
 
 
 // TODO: Remove this protocol (and/or reuse it for something like a FastProcessor)
-extension Processor: TracedProcessor {
+extension Processor /*: TracedProcessor*/ {
   var cycleCount: Int { metrics.cycleCount }
   var isTracingEnabled: Bool { metrics.isTracingEnabled }
 

@@ -12,21 +12,21 @@
 
 // TODO: Place shared formatting and trace infrastructure here
 
-protocol Traced {
-  var isTracingEnabled: Bool { get }
-}
-
-protocol TracedProcessor: ProcessorProtocol, Traced {
-  // Empty defaulted
-  func formatCallStack() -> String // empty default
-  func formatSavePoints() -> String // empty default
-  func formatRegisters() -> String // empty default
-
-  // Non-empty defaulted
-  func formatTrace() -> String
-  func formatInput() -> String
-  func formatInstructionWindow(windowSize: Int) -> String
-}
+//protocol Traced {
+//  var isTracingEnabled: Bool { get }
+//}
+//
+//protocol TracedProcessor: ProcessorProtocol, Traced {
+//  // Empty defaulted
+//  func formatCallStack() -> String // empty default
+//  func formatSavePoints() -> String // empty default
+//  func formatRegisters() -> String // empty default
+//
+//  // Non-empty defaulted
+//  func formatTrace() -> String
+//  func formatInput() -> String
+//  func formatInstructionWindow(windowSize: Int) -> String
+//}
 
 func lineNumber(_ i: Int) -> String {
   "[\(i)]"
@@ -34,18 +34,18 @@ func lineNumber(_ i: Int) -> String {
 func lineNumber(_ pc: InstructionAddress) -> String {
   lineNumber(pc.rawValue)
 }
+//
+//extension Processor {
+//  func formatRegisters() -> String {
+//    typealias E = ()
+//    if !registers.isEmpty {
+//      return "\(registers)\n"
+//    }
+//    return ""
+//  }
+//}
 
-extension TracedProcessor where Registers: Collection{
-  func formatRegisters() -> String {
-    typealias E = ()
-    if !registers.isEmpty {
-      return "\(registers)\n"
-    }
-    return ""
-  }
-}
-
-extension TracedProcessor {
+extension Processor {
   func printTrace() { print(formatTrace()) }
 
   func trace() {
@@ -60,16 +60,16 @@ extension TracedProcessor {
     return ""
   }
 
-  func formatSavePoints() -> String {
-    if !savePoints.isEmpty {
-      var result = "save points:\n"
-      for point in savePoints {
-        result += "  \(point)\n"
-      }
-      return result
-    }
-    return ""
-  }
+//  func formatSavePoints() -> String {
+//    if !savePoints.isEmpty {
+//      var result = "save points:\n"
+//      for point in savePoints {
+//        result += "  \(point)\n"
+//      }
+//      return result
+//    }
+//    return ""
+//  }
 
   func formatRegisters() -> String {
      typealias E = ()

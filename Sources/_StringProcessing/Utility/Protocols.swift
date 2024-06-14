@@ -17,30 +17,30 @@ protocol InstructionProtocol {
   var operandPC: InstructionAddress? { get }
 }
 
-protocol ProcessorProtocol {
-  associatedtype Input: Collection
-  associatedtype Instruction: InstructionProtocol
-  associatedtype SavePoint = ()
-  associatedtype Registers = ()
-
-  var cycleCount: Int { get }
-  var input: Input { get }
-
-  var currentPosition: Input.Index { get }
-  var currentPC: InstructionAddress { get }
-
-  var instructions: InstructionList<Instruction> { get }
-
-  var isAcceptState: Bool { get }
-  var isFailState: Bool { get }
-
-  // Provide to get call stack formatting, default empty
-  var callStack: Array<InstructionAddress> { get }
-
-  // Provide to get save point formatting, default empty
-  var savePoints: Array<SavePoint> { get }
-
-  // Provide to get register formatting, default empty
-  var registers: Registers { get }
-}
+//protocol ProcessorProtocol: ~Copyable {
+//  associatedtype Input: Collection
+//  associatedtype Instruction: InstructionProtocol
+//  associatedtype SavePoint = ()
+//  associatedtype Registers = ()
+//
+//  var cycleCount: Int { get }
+//  var input: Input { get }
+//
+//  var currentPosition: Input.Index { get }
+//  var currentPC: InstructionAddress { get }
+//
+//  var instructions: InstructionList<Instruction> { get }
+//
+//  var isAcceptState: Bool { get }
+//  var isFailState: Bool { get }
+//
+//  // Provide to get call stack formatting, default empty
+//  var callStack: Array<InstructionAddress> { get }
+//
+//  // Provide to get save point formatting, default empty
+//  var savePoints: Array<SavePoint> { get }
+//
+//  // Provide to get register formatting, default empty
+//  var registers: Registers { get }
+//}
 
