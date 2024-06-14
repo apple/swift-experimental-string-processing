@@ -165,4 +165,51 @@ extension RegexTests {
 
     }
   }
+
+  func testCaptureNames() {
+    let particle = try! Regex(#"(?<name>particle)-(?<id>\d+)"#)
+    let particleInput = "particle-123"
+
+    let uuid = try! Regex(#"(?<name>uuid): (?<id>[-a-f\d]+)"#)
+    let uuidInput = "uuid: 1234-abcd-5678"
+
+    let digitID = try! Regex(#"(?<id>\d+): (?<name>\w+)"#)
+    let digitInput = "1234: insert_name_here"
+
+    func expect(
+      _ regex: Regex<AnyRegexOutput>,
+      _ input: String,
+      capture name: String,
+      _ expected: String?
+    ) {
+      guard let match = input.wholeMatch(of: regex),
+            let cap = match[name]?.substring
+      else {
+        XCTAssertNil(expected)
+        return
+      }
+      XCTAssertEqual(String(cap), expected)
+    }
+
+    expect(particle, particleInput, capture: "id", "123")
+    expect(particle, particleInput, capture: "name", "particle")
+    expect(uuid, particleInput, capture: "id", nil)
+    expect(uuid, particleInput, capture: "name", nil)
+    expect(digitID, particleInput, capture: "id", nil)
+    expect(digitID, particleInput, capture: "name", nil)
+
+    expect(particle, uuidInput, capture: "id", nil)
+    expect(particle, uuidInput, capture: "name", nil)
+    expect(uuid, uuidInput, capture: "id", "1234-abcd-5678")
+    expect(uuid, uuidInput, capture: "name", "uuid")
+    expect(digitID, uuidInput, capture: "id", nil)
+    expect(digitID, uuidInput, capture: "name", nil)
+
+    expect(particle, digitInput, capture: "id", nil)
+    expect(particle, digitInput, capture: "name", nil)
+    expect(uuid, digitInput, capture: "id", nil)
+    expect(uuid, digitInput, capture: "name", nil)
+    expect(digitID, digitInput, capture: "id", "1234")
+    expect(digitID, digitInput, capture: "name", "insert_name_here")
+  }
 }
