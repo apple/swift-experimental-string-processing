@@ -1763,6 +1763,33 @@ extension RegexTests {
     firstMatchTest(#"\b÷\b"#, input: "3 ÷ 3 = 1", match: "÷")
   }
 
+  func testLevel2WordBoundaries_negative() throws {
+    // Run some non-match cases, the latter of which used to hang
+
+    // FIXME: stdlib 5.10 check
+
+    let re = #"\bA\b"#
+
+    firstMatchTest(re, input: "⛔️: X ", match: nil)
+    firstMatchTest(re, input: "日\u{FE0F}: X ", match: nil)
+    firstMatchTest(re, input: "👨‍👨‍👧‍👦\u{FE0F}: X ", match: nil)
+
+    firstMatchTest(re, input: "Z:X ", match: nil)
+
+    firstMatchTest(re, input: "Z\u{FE0F}:X ", match: nil)
+    firstMatchTest(re, input: "è\u{FE0F}:X ", match: nil)
+
+    firstMatchTest(re, input: "日:X ", match: nil)
+    firstMatchTest(re, input: "👨‍👨‍👧‍👦:X ", match: nil)
+
+    firstMatchTest(re, input: "日\u{FE0F}:X ", match: nil)
+    firstMatchTest(re, input: "👨‍👨‍👧‍👦\u{FE0F}:X ", match: nil)
+    firstMatchTest(re, input: "⛔️:X ", match: nil)
+
+    firstMatchTest(re, input: "⛔️·X ", match: nil)
+    firstMatchTest(re, input: "⛔️：X ", match: nil)
+  }
+
   func testMatchGroups() {
     // Must have new stdlib for character class ranges and word boundaries.
     guard ensureNewStdlib() else { return }
