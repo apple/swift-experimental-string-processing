@@ -1798,6 +1798,15 @@ extension RegexTests {
     firstMatchTest(
       #"(?:(?>a)|.b)c"#, input: "123abcacxyz", match: "abc")
 
+    firstMatchTest(
+      #"(?>a+)a"#, input: "aa", match: nil)
+    firstMatchTest(
+      #"(?>a+?)a"#, input: "aa", match: "aa")
+    firstMatchTest(
+      #"(?>(a+))a"#, input: "aa", match: nil)
+    firstMatchTest(
+      #"(?>(a+?))a"#, input: "aa", match: "aa")
+
     // Quantifier behavior inside atomic groups
     
     // (?:a+?) matches as few 'a's as possible, after matching the first
