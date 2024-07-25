@@ -76,6 +76,11 @@ public protocol RegexComponent<RegexOutput> {
 /// instances using a clear and flexible declarative syntax. Using this
 /// style, you can combine, capture, and transform regexes, `RegexBuilder`
 /// types, and custom parsers.
+///
+/// > Note:
+/// > Prior to Swift 6,
+/// > you might need to write `#/myregex/#` instead of `/myregex/`
+/// > when you make a regular expression using a literal.
 @available(SwiftStdlib 5.7, *)
 public struct Regex<Output>: RegexComponent {
   let program: Program
