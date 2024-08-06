@@ -18,6 +18,8 @@ import Darwin
 import Glibc
 #elseif os(Windows)
 import CRT
+#elseif canImport(Bionic)
+import Bionic
 #endif
 
 // (T), (T)
